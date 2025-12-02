@@ -1,8 +1,9 @@
-def seed_default_products():
-    cursor = mysql.connection.cursor()
+import mysql.connector
 
-    # Run seed file
-    with open('backend/models/seed_products.sql') as f:
-        sql = f.read()
-        cursor.execute(sql)
-        mysql.connection.commit()
+def get_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="YOUR_PASSWORD",
+        database="dunkin_db"
+    )

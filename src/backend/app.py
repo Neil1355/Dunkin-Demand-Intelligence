@@ -1,23 +1,44 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
-from routes.auth import auth_bp
-from routes.daily import daily_bp
-from routes.products import products_bp
-from routes.forecast import forecast_bp
-from models.db import seed_default_products
-
-seed_default_products()
 
 app = Flask(__name__)
 CORS(app)
 
-# register blueprints
-app.register_blueprint(auth_bp, url_prefix="/api")
-app.register_blueprint(daily_bp, url_prefix="/api")
-app.register_blueprint(products_bp, url_prefix="/api")
-app.register_blueprint(forecast_bp, url_prefix="/api")
+
+@app.get("/")
+def home():
+    return {"message": "Flask is working!"}
+
+
+# ----------- DAILY DATA ENDPOINT ----------- #
+@app.get("/daily")
+def get_daily_data():
+    # For now returning mock data (later we connect MySQL here)
+    data = {
+        "date": "2025-11-27",
+        "total_production": 842,
+        "total_waste": 52,
+        "items": [
+            {"name": "glazed", "produced": 120, "waste": 6},
+            {"name": "boston creme", "produced": 90, "waste": 5},
+        ]
+    }
+    return jsonify(data)
+
+
+# ----------- FORECAST ENDPOINT ----------- #
+@app.get("/forecast")
+def get_forecast():
+    # Mock forecast for now (later AI logic goes here)
+    forecast = {
+        "recommended_total": 798,
+        "recommendations": [
+            {"name": "glazed", "suggested": 115},
+            {"name": "boston creme", "suggested": 95},
+        ]
+    }
+    return jsonify(forecast)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-    
