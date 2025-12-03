@@ -1,9 +1,9 @@
 import mysql.connector
 
-def get_connection():
+def get_db():
     return mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="YOUR_PASSWORD",
-        database="dunkin_db"
+        user="root",  # <-- replace with yours
+        password="yourpassword",  
+        database="dunkin_demand"
     )

@@ -71,13 +71,13 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
 
   const handleAddItem = (type: 'donut' | 'munchkin') => {
     if (!newItemName.trim()) return;
-    
+
     if (type === 'donut') {
       onUpdateDonutTypes([...donutTypes, newItemName]);
     } else {
       onUpdateMunchkinTypes([...munchkinTypes, newItemName]);
     }
-    
+
     setQuantities({ ...quantities, [newItemName]: 0 });
     setNewItemName('');
     setAddingType(null);
@@ -110,7 +110,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
       newTypes[editingItem.index] = editingItem.value;
       onUpdateMunchkinTypes(newTypes);
     }
-    
+
     setEditingItem(null);
   };
 
@@ -124,7 +124,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
       wasteData,
       trendData
     };
-    
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -136,7 +136,29 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     URL.revokeObjectURL(url);
   };
 
-  return (
+  return
+  
+  async function handleSaveData() {
+  const items = Object.keys(quantities).map((key) => ({
+    name: key,
+    produced: quantities[key],
+    waste: Math.max(0, Math.floor(quantities[key] * 0.08))  // default 8% waste for now
+  }));
+
+  await fetch("http://localhost:5000/daily", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      date: new Date().toISOString().split("T")[0],
+      items: items
+    })
+  });
+
+  alert("Saved Successfully!");
+}
+(
     <div className="flex h-screen" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Sidebar */}
       <aside
@@ -156,9 +178,8 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
-                  activeTab === item.id ? 'bg-white' : 'hover:bg-white/20'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${activeTab === item.id ? 'bg-white' : 'hover:bg-white/20'
+                  }`}
                 style={{ color: activeTab === item.id ? '#DA1884' : 'white' }}
               >
                 <item.icon size={20} />
@@ -192,7 +213,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
               <div className="text-sm" style={{ color: '#8B7355' }}>Thursday, November 27, 2025</div>
             </div>
           </div>
-          
+
           <button
             onClick={handleExportData}
             className="flex items-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105"
@@ -268,7 +289,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
             <div className="space-y-6">
               <div className="bg-white rounded-3xl p-8 shadow-lg">
                 <h3 className="mb-6" style={{ color: '#FF671F' }}>Daily Donut & Munchkin Input</h3>
-                
+
                 {/* Donuts Section */}
                 <div className="space-y-4 mb-8">
                   <div className="flex items-center justify-between">
@@ -327,7 +348,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
                         ) : (
                           <span style={{ color: '#8B7355' }}>{donut}</span>
                         )}
-                        
+
                         <div className="flex items-center gap-2">
                           {editingItem?.type === 'donut' && editingItem.index === index ? (
                             <>
@@ -436,7 +457,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
                         ) : (
                           <span style={{ color: '#8B7355' }}>{munchkin}</span>
                         )}
-                        
+
                         <div className="flex items-center gap-2">
                           {editingItem?.type === 'munchkin' && editingItem.index === index ? (
                             <>
@@ -488,7 +509,8 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
                 </div>
 
                 <button
-                  className="w-full mt-8 py-4 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                  onClick={handleSaveData}
+                  className="w-full mt-8 py-4 rounded-full text-white"
                   style={{ backgroundColor: '#FF671F' }}
                 >
                   Save Today's Data
