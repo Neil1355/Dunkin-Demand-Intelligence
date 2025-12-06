@@ -1,6 +1,5 @@
-Flask
-flask-cors
-mysql-connector-python
-gunicorn
-python-dotenv
-pytz
+Flask==3.1.0
+Flask-Cors==4.0.0
+mysql-connector-python==9.0.0
+gunicorn==22.0.0
+python-dotenv==1.0.1
