@@ -1,7 +1,6 @@
-flask
+Flask
 flask-cors
 mysql-connector-python
+gunicorn
 python-dotenv
-scikit-learn
-pandas
-numpy
+pytz
