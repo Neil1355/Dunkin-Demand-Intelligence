@@ -4,11 +4,17 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Import routes AFTER app and AFTER __init__.py exists
+# Correct imports — MUST include backend.
+from backend.routes.products import products_bp
 from backend.routes.daily import daily_bp
+from backend.routes.auth import auth_bp
+from backend.routes.forecast import forecast_bp
 
 # Register blueprints
+app.register_blueprint(products_bp, url_prefix="/products")
 app.register_blueprint(daily_bp, url_prefix="/daily")
+app.register_blueprint(auth_bp, url_prefix="/auth")
+app.register_blueprint(forecast_bp, url_prefix="/forecast")
 
 @app.get("/")
 def home():

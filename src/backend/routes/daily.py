@@ -1,3 +1,4 @@
+#from backend.models.db import get_connection  # keep this only
 from flask import Blueprint, request, jsonify
 from backend.models.daily_data_model import insert_daily_entry
 
