@@ -4,13 +4,11 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Correct imports — MUST include backend.
 from backend.routes.products import products_bp
 from backend.routes.daily import daily_bp
 from backend.routes.auth import auth_bp
 from backend.routes.forecast import forecast_bp
 
-# Register blueprints
 app.register_blueprint(products_bp, url_prefix="/products")
 app.register_blueprint(daily_bp, url_prefix="/daily")
 app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -21,4 +19,4 @@ def home():
     return {"message": "Flask is working with blueprints!"}
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
