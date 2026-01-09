@@ -3,7 +3,13 @@ from flask import Flask
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+
+# Allow frontend (Vercel) to call backend
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},  # later we will restrict this
+    supports_credentials=True
+)
 
 from backend.routes.products import products_bp
 from backend.routes.daily import daily_bp
@@ -17,7 +23,7 @@ app.register_blueprint(forecast_bp, url_prefix="/forecast")
 
 @app.get("/")
 def home():
-    return {"message": "Flask is working with blueprints!"}
+    return {"message": "Backend is live"}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
