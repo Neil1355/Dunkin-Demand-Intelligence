@@ -5,15 +5,7 @@ forecast_bp = Blueprint("forecast", __name__)
 
 @forecast_bp.get("/")
 def get_forecast():
-    """
-    Simple placeholder forecast based on last 7 days.
-    We'll replace this with real ML later.
-
-    Optional: pass ?user_id=1
-    If not provided, we default to user_id=1 for now (MVP).
-    """
-
-    user_id = request.args.get("user_id", default=1, type=int)
+    user_id = request.args.get("user_id", type=int)
 
     last_7 = get_last_7_days(user_id)
 
@@ -23,15 +15,10 @@ def get_forecast():
     forecast = {}
 
     for row in last_7:
-        # NOTE: these keys must match what get_last_7_days returns
-        name = row.get("item_name")
-        produced = row.get("produced", 0)
-        waste = row.get("waste", 0)
+        name = row["product_name"]
+        waste = row["waste"]
 
-        if not name:
-            continue
+        # naive placeholder: reduce waste by 10%
+        forecast[name] = max(int(waste * 0.9), 0)
 
-        # Simple rule-based estimate: reduce waste 10%
-        forecast[name] = int(produced - (waste * 0.1))
-
-    return jsonify({"forecast": forecast, "user_id": user_id})
+    return jsonify({"forecast": forecast})
