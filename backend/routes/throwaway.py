@@ -1,50 +1,46 @@
-from flask import Blueprint, send_file
+from flask import Blueprint, request, jsonify
 from backend.models.db import get_connection
-import pandas as pd
-from io import BytesIO
-from datetime import date, timedelta
 
 throwaway_bp = Blueprint("throwaway", __name__, url_prefix="/throwaway")
 
-@throwaway_bp.get("/export")
-def export_throwaway_excel():
-    store_id = 1  # can parameterize later
+@throwaway_bp.post("/upload")
+def upload_throwaway():
+    data = request.get_json()
 
-    today = date.today()
-    last_sunday = today - timedelta(days=today.weekday() + 1)
+    store_id = data.get("store_id")
+    throwaway_date = data.get("throwaway_date")
+    items = data.get("items", [])
+
+    if not store_id or not throwaway_date or not items:
+        return jsonify({"error": "Missing required fields"}), 400
 
     conn = get_connection()
+    cur = conn.cursor()
 
-    df = pd.read_sql("""
-        SELECT
-            dt.throwaway_date AS date,
-            p.product_name,
-            dt.quantity_thrown
-        FROM daily_throwaway dt
-        JOIN products p ON dt.product_id = p.product_id
-        WHERE dt.store_id = %s
-          AND dt.throwaway_date >= %s
-        ORDER BY dt.throwaway_date;
-    """, conn, params=(store_id, last_sunday))
+    try:
+        for item in items:
+            cur.execute(
+                """
+                INSERT INTO daily_throwaway (store_id, product_id, throwaway_date, quantity_thrown)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (store_id, throwaway_date, product_id)
+                DO UPDATE SET quantity_thrown = EXCLUDED.quantity_thrown
+                """,
+                (
+                    store_id,
+                    item["product_id"],
+                    throwaway_date,
+                    item["quantity_thrown"]
+                )
+            )
 
-    conn.close()
+        conn.commit()
+        return jsonify({"message": "Throwaway data saved successfully"})
 
-    if df.empty:
-        return {"message": "No data for this week"}, 404
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
 
-    pivot = df.pivot(
-        index="date",
-        columns="product_name",
-        values="quantity_thrown"
-    ).fillna(0).reset_index()
-
-    output = BytesIO()
-    pivot.to_excel(output, index=False)
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="Weekly_Throwaway.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    finally:
+        cur.close()
+        conn.close()

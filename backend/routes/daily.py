@@ -1,20 +1,21 @@
-#from backend.models.db import get_connection  # keep this only
 from flask import Blueprint, request, jsonify
 from backend.models.daily_data_model import insert_daily_entry
 
-daily_bp = Blueprint('daily', __name__)
+daily_bp = Blueprint("daily", __name__)
 
-@daily_bp.post("/submit")
-def save_daily_data():
-    data = request.json
+@daily_bp.post("/upload")
+def upload_daily():
+    data = request.get_json()
 
-    for item in data["items"]:
-        insert_daily_entry(
-            data["user_id"],
-            item["product_id"],
-            data["date"],
-            item["produced"],
-            item["wasted"]
-        )
+    user_id = data.get("user_id")
+    product_id = data.get("product_id")
+    date = data.get("date")
+    produced = data.get("produced")
+    waste = data.get("waste")
 
-    return jsonify({"status": "success"})
+    if not all([user_id, product_id, date]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    insert_daily_entry(user_id, product_id, date, produced or 0, waste or 0)
+
+    return jsonify({"message": "Daily entry saved"})

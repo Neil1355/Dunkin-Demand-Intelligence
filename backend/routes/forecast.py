@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request, jsonify
 from backend.models.daily_data_model import get_last_7_days
 
 forecast_bp = Blueprint("forecast", __name__)
@@ -10,29 +10,18 @@ def get_forecast():
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
 
-    last_7 = get_last_7_days(user_id)
+    rows = get_last_7_days(user_id)
 
-    if len(last_7) < 3:
+    if not rows:
         return jsonify({"forecast": {}, "message": "Not enough data"})
 
     forecast = {}
 
-    for row in last_7:
+    for row in rows:
         name = row["product_name"]
-        produced = row["produced"]
         waste = row["waste"]
 
-        net = max(produced - waste, 0)
+        # naive forecast: reduce waste by 10%
+        forecast[name] = max(int(waste * 0.9), 0)
 
-        if name not in forecast:
-            forecast[name] = []
-
-        forecast[name].append(net)
-
-    # average net sales → tomorrow’s production
-    final_forecast = {
-        name: max(int(sum(values) / len(values) * 1.05), 1)
-        for name, values in forecast.items()
-    }
-
-    return jsonify({"forecast": final_forecast})
+    return jsonify({"forecast": forecast})
