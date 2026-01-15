@@ -15,11 +15,14 @@ from backend.routes.products import products_bp
 from backend.routes.daily import daily_bp
 from backend.routes.auth import auth_bp
 from backend.routes.forecast import forecast_bp
+from backend.routes.throwaway import throwaway_bp
 
 app.register_blueprint(products_bp, url_prefix="/products")
 app.register_blueprint(daily_bp, url_prefix="/daily")
 app.register_blueprint(auth_bp, url_prefix="/auth")
 app.register_blueprint(forecast_bp, url_prefix="/forecast")
+app.register_blueprint(throwaway_bp, url_prefix="/throwaway")
+
 
 @app.get("/")
 def home():
