@@ -1,0 +1,2 @@
+#railway keeps using python 2.2.2 and creates an error so had to create this
+python-3.12.2
