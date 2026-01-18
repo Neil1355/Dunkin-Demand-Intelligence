@@ -8,7 +8,7 @@ def insert_daily_entry(user_id, product_id, date, produced, waste):
 
     cur.execute(
         """
-        INSERT INTO daily_entries (user_id, product_id, date, produced, waste)
+        INSERT INTO public.daily_entries (user_id, product_id, date, produced, waste)
         VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (user_id, product_id, date)
         DO UPDATE SET
@@ -25,22 +25,18 @@ def insert_daily_entry(user_id, product_id, date, produced, waste):
 
 def get_last_7_days(user_id):
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor(dictionary=True)
 
-    cur.execute(
-        """
-        SELECT
-            p.product_name,
-            SUM(de.produced) AS produced,
-            SUM(de.waste) AS waste
-        FROM daily_entries de
-        JOIN products p ON de.product_id = p.product_id
-        WHERE de.user_id = %s
-        GROUP BY p.product_name
-        ORDER BY p.product_name;
-        """,
-        (user_id,),
-    )
+    cur.execute("""
+        SELECT 
+            p.name AS product_name,
+            AVG(d.waste) AS avg_waste
+        FROM daily_data d
+        JOIN products p ON d.product_id = p.id
+        WHERE d.user_id = %s
+          AND d.date >= CURDATE() - INTERVAL 7 DAY
+        GROUP BY p.name
+    """, (user_id,))
 
     rows = cur.fetchall()
     cur.close()
