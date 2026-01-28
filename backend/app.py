@@ -2,6 +2,12 @@ import os
 from flask import Flask
 from flask_cors import CORS
 
+from dotenv import load_dotenv
+load_dotenv(r"C:\Users\neilb\Downloads\Dunkin Demand Intelligence Landing Page\.env")
+
+print("DATABASE_URL LOADED:", os.getenv("DATABASE_URL"))
+
+
 app = Flask(__name__)
 
 # Allow frontend (Vercel) to call backend
@@ -18,6 +24,8 @@ from backend.routes.forecast import forecast_bp
 from backend.services.excel_import import excel_bp
 from backend.routes.export import export_bp
 from backend.routes.forecast_context import forecast_context_bp
+from backend.routes.throwaway_export import throwaway_export_bp
+from backend.routes.forecast_v1 import forecast_v1_bp
 
 app.register_blueprint(products_bp, url_prefix="/products")
 app.register_blueprint(daily_bp, url_prefix="/daily")
@@ -25,7 +33,9 @@ app.register_blueprint(auth_bp, url_prefix="/auth")
 app.register_blueprint(forecast_bp, url_prefix="/forecast")
 app.register_blueprint(excel_bp, url_prefix="/excel")
 app.register_blueprint(export_bp, url_prefix="/export")
-app.register_blueprint(forecast_context_bp)
+app.register_blueprint(forecast_context_bp, url_prefix="/forecast_context")
+app.register_blueprint(throwaway_export_bp, url_prefix="/throwaway")
+app.register_blueprint(forecast_v1_bp, url_prefix="/forecast")
 
 
 @app.get("/")

@@ -10,5 +10,6 @@ def get_connection():
 
     return psycopg2.connect(
         DATABASE_URL,
-        cursor_factory=psycopg2.extras.RealDictCursor
+        cursor_factory=psycopg2.extras.RealDictCursor,
+        connect_timeout=10
     )

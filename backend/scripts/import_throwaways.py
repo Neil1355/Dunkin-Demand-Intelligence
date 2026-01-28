@@ -21,9 +21,18 @@ print("ENV FILE EXISTS:", os.path.exists(ENV_PATH))
 
 from backend.models.db import get_connection
 
+
+# ---------------------------------------------------------
+# Load product map
+# ---------------------------------------------------------
 def load_product_map(cur):
-    cur.execute("SELECT product_id, product_name FROM public.products WHERE is_active = TRUE")
+    cur.execute("""
+        SELECT product_id, product_name 
+        FROM public.products 
+        WHERE is_active = TRUE
+    """)
     rows = cur.fetchall()
+
     product_map = {}
     for row in rows:
         if isinstance(row, dict):
@@ -31,15 +40,40 @@ def load_product_map(cur):
             name = row["product_name"]
         else:
             pid, name = row
-        product_map[name.strip().lower()] = pid   # case-insensitive
+
+        product_map[name.strip().lower()] = pid
+
     return product_map
 
+
+# ---------------------------------------------------------
+# CLI args
+# ---------------------------------------------------------
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Import weekly throwaway sheet")
     parser.add_argument("--store", type=int, required=True)
     parser.add_argument("--file", type=str, required=True)
     return parser.parse_args()
 
+
+# ---------------------------------------------------------
+# Helper function
+# ---------------------------------------------------------
+def safe_int(x):
+    try:
+        if pd.isna(x):
+            return 0
+        x = str(x).strip()
+        if x == "":
+            return 0
+        return int(float(x))
+    except:
+        return 0
+
+
+# ---------------------------------------------------------
+# Main importer
+# ---------------------------------------------------------
 def main():
     args = parse_arguments()
     STORE_ID = args.store
@@ -50,17 +84,21 @@ def main():
 
     df = pd.read_excel(EXCEL_PATH, header=None)
 
+    # Base date (Sunday)
     base_date_raw = df.iloc[1, 1]
     base_date = pd.to_datetime(base_date_raw).date()
     print(f"[DATE] Base date (Sunday): {base_date}")
 
+    # 7 days of the week
     dates = [base_date + timedelta(days=i) for i in range(7)]
+
     start_row = 4
-    waste_cols = list(range(1, 15))
+    cols = list(range(1, 15))  # 14 columns: AM/PM pairs for 7 days
 
     conn = get_connection()
     cur = conn.cursor()
 
+    # Debug info
     cur.execute("SELECT current_database(), current_user;")
     print("[DEBUG] DB/USER:", cur.fetchone())
 
@@ -88,6 +126,9 @@ def main():
 
     imported_count = 0
 
+    # ---------------------------------------------------------
+    # Iterate through product rows
+    # ---------------------------------------------------------
     for row in range(start_row, len(df)):
         product_name = df.iloc[row, 0]
 
@@ -95,41 +136,60 @@ def main():
             continue
 
         product_name = str(product_name).strip()
-        product_key = product_name.lower()  # case-insensitive lookup
+        product_key = product_name.lower()
 
         if product_name in SKIP_ROWS:
             continue
 
+        # Read AM/PM values FIRST (prevents index errors)
+        values = df.iloc[row, cols].fillna(0).tolist()
+
+        # Auto-add seasonal products AFTER reading row
         if product_key not in PRODUCT_MAP:
-            print(f"[WARN] Unknown product in Excel: {product_name}")
-            continue
+            print(f"[AUTO-ADD] New seasonal product detected: {product_name}")
+
+            cur.execute("""
+                INSERT INTO public.products (product_name, product_type, is_active)
+                VALUES (%s, 'other', TRUE)
+                RETURNING product_id;
+            """, (product_name,))
+
+            row_dict = cur.fetchone()
+            new_id = row_dict["product_id"]
+            PRODUCT_MAP[product_key] = new_id
 
         product_id = PRODUCT_MAP[product_key]
 
-        values = df.iloc[row, waste_cols].fillna(0).tolist()
+        # Extract produced (AM) and waste (PM)
+        produced_list = []
+        waste_list = []
 
-        # Combine AM+PM into one daily waste value
-        daily_waste = []
         for i in range(0, 14, 2):
-            am = int(values[i])
-            pm = int(values[i + 1])
-            daily_waste.append(am + pm)
+            am = safe_int(values[i])       # produced
+            pm = safe_int(values[i + 1])   # waste
 
-        # Insert 7 days with UPSERT
+            produced_list.append(am)
+            waste_list.append(pm)
+
+        # Insert 7 days
         for day_index in range(7):
             date = dates[day_index]
-            waste = daily_waste[day_index]
+            produced = produced_list[day_index]
+            waste = waste_list[day_index]
 
-            if waste == 0:
-                continue  # optional: skip zero-waste rows
+            # Optional: skip rows where both are zero
+            if produced == 0 and waste == 0:
+                continue
 
             cur.execute("""
                 INSERT INTO public.daily_throwaway
-                (store_id, product_id, date, waste)
-                VALUES (%s, %s, %s, %s)
+                (store_id, product_id, date, produced, waste)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (store_id, product_id, date)
-                DO UPDATE SET waste = EXCLUDED.waste;
-            """, (STORE_ID, product_id, date, waste))
+                DO UPDATE SET 
+                    produced = EXCLUDED.produced,
+                    waste = EXCLUDED.waste;
+            """, (STORE_ID, product_id, date, produced, waste))
 
         print(f"[OK] Imported: {product_name}")
         imported_count += 1
@@ -138,7 +198,8 @@ def main():
     cur.close()
     conn.close()
 
-    print(f"\n[DONE] Import complete: {imported_count} products, {imported_count * 7} daily waste entries processed.")
+    print(f"\n[DONE] Import complete: {imported_count} products, {imported_count * 7} daily entries processed.")
+
 
 if __name__ == "__main__":
     main()
