@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { apiFetch } from '../../utils/api';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -12,13 +13,11 @@ interface DashboardProps {
   onUpdateMunchkinTypes: (types: string[]) => void;
 }
 async function fetchDailyData() {
-  const res = await fetch("http://localhost:5000/daily");
-  return res.json();
+  return apiFetch("/dashboard/daily?store_id=1&date=2026-02-01"); // example
 }
 
 async function fetchForecast() {
-  const res = await fetch("http://localhost:5000/forecast");
-  return res.json();
+  return apiFetch("/forecast?store_id=1&target_date=2026-02-01");
 }
 
 export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
@@ -145,15 +144,13 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     waste: Math.max(0, Math.floor(quantities[key] * 0.08))  // default 8% waste for now
   }));
 
-  await fetch("http://localhost:5000/daily", {
+  await apiFetch("/dashboard/daily", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
     body: JSON.stringify({
       date: new Date().toISOString().split("T")[0],
       items: items
     })
+  });
   });
 
   alert("Saved Successfully!");

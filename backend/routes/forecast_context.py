@@ -3,7 +3,7 @@ from backend.models.db import get_connection
 
 forecast_context_bp = Blueprint("forecast_context", __name__)
 
-@forecast_context_bp.post("/forecast/context")
+@forecast_context_bp.post("/")
 def save_forecast_context():
     data = request.get_json()
 

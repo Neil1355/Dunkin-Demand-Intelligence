@@ -3,7 +3,7 @@ from backend.models.db import get_connection
 
 daily_bp = Blueprint("daily", __name__)
 
-@daily_bp.route("/daily", methods=["POST"])
+@daily_bp.post("/")
 def upload_daily():
     data = request.get_json()
 
@@ -20,22 +20,24 @@ def upload_daily():
     cur = conn.cursor()
 
     try:
+        # PRODUCTION
         if produced > 0:
             cur.execute("""
                 INSERT INTO public.daily_production
-                (store_id, product_id, production_date, quantity_produced)
+                (store_id, product_id, date, quantity)
                 VALUES (%s, %s, %s, %s)
-                ON CONFLICT (store_id, product_id, production_date)
-                DO UPDATE SET quantity_produced = EXCLUDED.quantity_produced
+                ON CONFLICT (store_id, product_id, date)
+                DO UPDATE SET quantity = EXCLUDED.quantity
             """, (store_id, product_id, date, produced))
 
+        # WASTE
         if waste > 0:
             cur.execute("""
                 INSERT INTO public.daily_throwaway
-                (store_id, product_id, throwaway_date, quantity_thrown)
+                (store_id, product_id, date, waste)
                 VALUES (%s, %s, %s, %s)
-                ON CONFLICT (store_id, product_id, throwaway_date)
-                DO UPDATE SET quantity_thrown = EXCLUDED.quantity_thrown
+                ON CONFLICT (store_id, product_id, date)
+                DO UPDATE SET waste = EXCLUDED.waste
             """, (store_id, product_id, date, waste))
 
         conn.commit()

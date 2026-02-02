@@ -13,7 +13,8 @@ def next_day_forecast():
     conn = get_connection()
     cur = conn.cursor()
 
-    target_date = date.today() + timedelta(days=1)
+    target_date = request.args.get("target_date", type=lambda d: date.fromisoformat(d)) \
+              or date.today() + timedelta(days=1)
     weekday = target_date.weekday()
 
     cur.execute("SELECT product_id FROM products WHERE is_active = true")

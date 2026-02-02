@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from '../utils/api';
 
 export default function DailyEntryForm() {
   const [store_id, setStoreId] = useState(1);
@@ -9,9 +10,8 @@ export default function DailyEntryForm() {
 
   const submitDailyEntry = async () => {
     try {
-      const res = await fetch("/daily", {
+      await apiFetch("/daily", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           store_id,
           product_id,
