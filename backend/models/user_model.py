@@ -1,5 +1,6 @@
 from models.db import get_connection
 import bcrypt
+from psycopg2.extras import RealDictCursor
 
 def create_user(name, email, password):
     conn = get_connection()
@@ -20,7 +21,7 @@ def create_user(name, email, password):
 
 def authenticate_user(email, password):
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
     user = cursor.fetchone()

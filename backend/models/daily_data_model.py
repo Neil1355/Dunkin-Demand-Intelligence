@@ -25,7 +25,7 @@ def insert_daily_entry(user_id, product_id, date, produced, waste):
 
 def get_last_7_days(user_id):
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute("""
         SELECT 

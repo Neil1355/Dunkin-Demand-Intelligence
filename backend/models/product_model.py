@@ -1,8 +1,9 @@
 from models.db import get_connection
+from psycopg2.extras import RealDictCursor
 
 def get_all_products():
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("""
         SELECT product_id, product_name, product_type, is_active
