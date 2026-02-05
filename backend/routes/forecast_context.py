@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.models.db import get_connection
+from models.db import get_connection
 
 forecast_context_bp = Blueprint("forecast_context", __name__)
 

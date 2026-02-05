@@ -1,4 +1,4 @@
-from backend.models.db import get_connection
+from models.db import get_connection
 import bcrypt
 
 def create_user(name, email, password):
