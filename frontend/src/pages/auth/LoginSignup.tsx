@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, MapPin, Hash, X } from 'lucide-react';
+import { apiClient } from '../../api/client';
 
 interface LoginSignupProps {
   mode: 'login' | 'signup';
@@ -16,11 +17,42 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
     storeNumber: '',
     username: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const username = formData.username || formData.email.split('@')[0];
-    onLogin(username);
+    setError('');
+    setLoading(true);
+
+    try {
+      if (mode === 'login') {
+        const response = await apiClient.login(formData.email, formData.password);
+        if (response.status === 'success' && response.user) {
+          onLogin(response.user.name);
+        } else {
+          setError(response.message || 'Login failed');
+        }
+      } else {
+        const response = await apiClient.signup(
+          formData.username || formData.email.split('@')[0],
+          formData.email,
+          formData.password,
+          formData.storeAddress,
+          formData.storeNumber
+        );
+        if (response.status === 'success' && response.user) {
+          onLogin(response.user.name);
+        } else {
+          setError(response.message || 'Signup failed');
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred. Please try again.');
+      console.error('Auth error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -45,6 +77,11 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
           
           {/* Form content */}
           <form onSubmit={handleSubmit} className="p-8 space-y-5">
+            {error && (
+              <div className="p-3 rounded-full text-white text-sm" style={{ backgroundColor: '#FF6B6B' }}>
+                {error}
+              </div>
+            )}
             {mode === 'signup' && (
               <div>
                 <label className="block mb-2" style={{ color: '#8B7355' }}>
@@ -160,15 +197,17 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                 <>
                   <button
                     type="submit"
-                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                    disabled={loading}
+                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50"
                     style={{ backgroundColor: '#FF671F' }}
                   >
-                    Login
+                    {loading ? 'Logging in...' : 'Login'}
                   </button>
                   <button
                     type="button"
                     onClick={onToggleMode}
-                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                    disabled={loading}
+                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50"
                     style={{ backgroundColor: '#DA1884' }}
                   >
                     Create Account
@@ -179,17 +218,19 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                   <button
                     type="button"
                     onClick={onToggleMode}
-                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                    disabled={loading}
+                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50"
                     style={{ backgroundColor: '#FF671F' }}
                   >
                     Back to Login
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                    disabled={loading}
+                    className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50"
                     style={{ backgroundColor: '#DA1884' }}
                   >
-                    Create Account
+                    {loading ? 'Creating Account...' : 'Create Account'}
                   </button>
                 </>
               )}

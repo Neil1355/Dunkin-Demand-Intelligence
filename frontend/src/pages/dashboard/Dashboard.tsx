@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { apiFetch } from '../../utils/api';
+import { apiClient } from '../../api/client';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -11,13 +11,6 @@ interface DashboardProps {
   munchkinTypes: string[];
   onUpdateDonutTypes: (types: string[]) => void;
   onUpdateMunchkinTypes: (types: string[]) => void;
-}
-async function fetchDailyData() {
-  return apiFetch("/dashboard/daily?store_id=1&date=2026-02-01"); // example
-}
-
-async function fetchForecast() {
-  return apiFetch("/forecast?store_id=1&target_date=2026-02-01");
 }
 
 export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
@@ -33,15 +26,30 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
 
   const [daily, setDaily] = useState(null);
   const [forecast, setForecast] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchDailyData().then((data) => {
-      setDaily(data);
-    });
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        // Fetch forecast data from API
+        const forecastData = await apiClient.getForecast(1, new Date().toISOString().split('T')[0]);
+        setForecast(forecastData);
 
-    fetchForecast().then((data) => {
-      setForecast(data);
-    });
+        // Fetch other dashboard data if needed
+        setDaily({ status: 'ok' });
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch dashboard data');
+        console.error('Dashboard fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const wasteData = [
