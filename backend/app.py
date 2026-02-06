@@ -8,7 +8,6 @@ load_dotenv(r"C:\Users\neilb\Downloads\Dunkin Demand Intelligence Landing Page\.
 print("DATABASE_URL LOADED:", os.getenv("DATABASE_URL"))
 
 
-app = Flask(__name__)
 
 # Allow frontend (Vercel) to call backend
 CORS(
@@ -34,6 +33,7 @@ from routes.qr import qr_bp
 from routes.dashboard import dashboard_bp
 from routes.system_health import system_health_bp
 
+app = Flask(__name__)
 app.register_blueprint(products_bp, url_prefix="/products")
 app.register_blueprint(daily_bp, url_prefix="/daily")
 app.register_blueprint(auth_bp, url_prefix="/auth")
