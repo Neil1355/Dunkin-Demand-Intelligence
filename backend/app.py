@@ -8,6 +8,7 @@ load_dotenv(r"C:\Users\neilb\Downloads\Dunkin Demand Intelligence Landing Page\.
 print("DATABASE_URL LOADED:", os.getenv("DATABASE_URL"))
 
 
+app = Flask(__name__)
 
 # Allow frontend (Vercel) to call backend
 CORS(
@@ -16,24 +17,22 @@ CORS(
     supports_credentials=True
 )
 
-from routes.products import products_bp
-from routes.daily_entry import daily_bp
-from routes.auth import auth_bp
-from routes.forecast import forecast_bp
-from services.excel_import import excel_bp
-from routes.export import export_bp
-from routes.forecast_context import forecast_context_bp
-from routes.throwaway_export import throwaway_export_bp
-from routes.forecast_v1 import forecast_v1_bp
-from routes.forecast_approval import forecast_approval_bp
-from routes.waste_submission import waste_submission_bp
-from routes.forecast_accuracy import forecast_accuracy_bp
-from routes.forecast_learning import forecast_learning_bp
-from routes.qr import qr_bp
-from routes.dashboard import dashboard_bp
-from routes.system_health import system_health_bp
+from backend.routes.products import products_bp
+from backend.routes.daily_entry import daily_bp
+from backend.routes.auth import auth_bp
+from backend.routes.forecast import forecast_bp
+from backend.services.excel_import import excel_bp
+from backend.routes.export import export_bp
+from backend.routes.forecast_context import forecast_context_bp
+from backend.routes.throwaway_export import throwaway_export_bp
+from backend.routes.forecast_v1 import forecast_v1_bp
+from backend.routes.forecast_approval import forecast_approval_bp
+from backend.routes.waste_submission import waste_submission_bp
+from backend.routes.forecast_accuracy import forecast_accuracy_bp
+from backend.routes.forecast_learning import forecast_learning_bp
+from backend.routes.qr import qr_bp
+from backend.routes.dashboard import dashboard_bp
 
-app = Flask(__name__)
 app.register_blueprint(products_bp, url_prefix="/products")
 app.register_blueprint(daily_bp, url_prefix="/daily")
 app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -47,7 +46,6 @@ app.register_blueprint(forecast_accuracy_bp, url_prefix="/api/v1/forecast/accura
 app.register_blueprint(forecast_learning_bp, url_prefix="/api/v1/forecast/learning")
 app.register_blueprint(forecast_approval_bp, url_prefix="/api/v1/forecast/approvals")
 app.register_blueprint(dashboard_bp, url_prefix="/api/v1/dashboard")
-app.register_blueprint(system_health_bp, url_prefix="/api/v1")
 
 
 @app.get("/")
