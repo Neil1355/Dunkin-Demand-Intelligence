@@ -3,7 +3,7 @@
  * Base URL: https://dunkin-demand-intelligence.onrender.com/api/v1
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
 export interface LoginRequest {
   email: string;
