@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+/// <reference types="vite/client" />
 import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download } from 'lucide-react';
+// @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
 import { apiClient } from '../../api/client';

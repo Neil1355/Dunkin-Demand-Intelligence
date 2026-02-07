@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * API Client for Dunkin Demand Intelligence Backend
  * Base URL: https://dunkin-demand-intelligence.onrender.com/api/v1
@@ -68,13 +69,13 @@ class APIClient {
   }
 
   private async request<T>(
-    method: string,
     endpoint: string,
+    method: string,
     data?: any
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const options: RequestInit = {
-      method,
+      method: method,
       headers: {
         "Content-Type": "application/json",
       },
