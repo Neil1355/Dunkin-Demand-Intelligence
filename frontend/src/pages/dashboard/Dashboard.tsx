@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { apiFetch } from '../../utils/api';
 import { apiClient } from '../../api/client';
 
 interface DashboardProps {
@@ -23,34 +24,6 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
   );
-
-  const [daily, setDaily] = useState(null);
-  const [forecast, setForecast] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        
-        // Fetch forecast data from API
-        const forecastData = await apiClient.getForecast(1, new Date().toISOString().split('T')[0]);
-        setForecast(forecastData);
-
-        // Fetch other dashboard data if needed
-        setDaily({ status: 'ok' });
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch dashboard data');
-        console.error('Dashboard fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
 
   const wasteData = [
     { day: 'Mon', waste: 12, sales: 88 },
@@ -143,27 +116,29 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     URL.revokeObjectURL(url);
   };
 
-  return
-  
   async function handleSaveData() {
-  const items = Object.keys(quantities).map((key) => ({
-    name: key,
-    produced: quantities[key],
-    waste: Math.max(0, Math.floor(quantities[key] * 0.08))  // default 8% waste for now
-  }));
+    const items = Object.keys(quantities).map((key) => ({
+      name: key,
+      produced: quantities[key],
+      waste: Math.max(0, Math.floor(quantities[key] * 0.08))
+    }));
 
-  await apiFetch("/dashboard/daily", {
-    method: "POST",
-    body: JSON.stringify({
-      date: new Date().toISOString().split("T")[0],
-      items: items
-    })
-  });
-  });
+    try {
+      await apiFetch("/dashboard/daily", {
+        method: "POST",
+        body: JSON.stringify({
+          date: new Date().toISOString().split("T")[0],
+          items: items
+        })
+      });
+      alert("Saved Successfully!");
+    } catch (err) {
+      alert("Failed to save data");
+      console.error(err);
+    }
+  }
 
-  alert("Saved Successfully!");
-}
-(
+  return (
     <div className="flex h-screen" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Sidebar */}
       <aside
