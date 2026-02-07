@@ -3,7 +3,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from dotenv import load_dotenv
-load_dotenv(r"C:\Users\neilb\Downloads\Dunkin Demand Intelligence Landing Page\.env")
+load_dotenv()
 
 print("DATABASE_URL LOADED:", os.getenv("DATABASE_URL"))
 
