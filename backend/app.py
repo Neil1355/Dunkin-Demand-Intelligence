@@ -34,14 +34,14 @@ from routes.qr import qr_bp
 from routes.dashboard import dashboard_bp
 from routes.system_health import system_health_bp
 
-app.register_blueprint(products_bp, url_prefix="/products")
-app.register_blueprint(daily_bp, url_prefix="/daily")
-app.register_blueprint(auth_bp, url_prefix="/auth")
-app.register_blueprint(forecast_bp, url_prefix="/forecast")
-app.register_blueprint(excel_bp, url_prefix="/excel")
-app.register_blueprint(export_bp, url_prefix="/export")
-app.register_blueprint(forecast_context_bp, url_prefix="/forecast/context")
-app.register_blueprint(throwaway_export_bp, url_prefix="/throwaway")
+app.register_blueprint(products_bp, url_prefix="/api/v1/products")
+app.register_blueprint(daily_bp, url_prefix="/api/v1/daily")
+app.register_blueprint(auth_bp, url_prefix="/api/v1/auth")
+app.register_blueprint(forecast_bp, url_prefix="/api/v1/forecast")
+app.register_blueprint(excel_bp, url_prefix="/api/v1/excel")
+app.register_blueprint(export_bp, url_prefix="/api/v1/export")
+app.register_blueprint(forecast_context_bp, url_prefix="/api/v1/forecast/context")
+app.register_blueprint(throwaway_export_bp, url_prefix="/api/v1/throwaway")
 app.register_blueprint(forecast_v1_bp, url_prefix="/api/v1")
 app.register_blueprint(forecast_accuracy_bp, url_prefix="/api/v1/forecast/accuracy")
 app.register_blueprint(forecast_learning_bp, url_prefix="/api/v1/forecast/learning")

@@ -1,8 +1,23 @@
+# Node
 node_modules/
 frontend/node_modules/
-__pycache__/
-.venv*/
-*.pyc
-.env
-node_modules/
+
+# Build outputs
+frontend/build/
 dist/
+
+# Python
+__pycache__/
+.venv/
+venv/
+*.pyc
+
+# Environment
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
