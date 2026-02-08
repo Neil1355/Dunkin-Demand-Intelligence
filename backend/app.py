@@ -1,30 +1,42 @@
 import os
+import re
 from flask import Flask
 from flask_cors import CORS
-
 from dotenv import load_dotenv
+
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# Allow frontend (Vercel) to call backend
-# Configure CORS from environment to avoid wildcard + credentials issues in browsers
-# Allowed frontend origins. Can be set via FRONTEND_URL (single) or FRONTEND_URLS (comma-separated).
+# 1. DEFINE ALLOWED ORIGINS
+# These are your specific Vercel domains
 DEFAULT_ORIGINS = [
     "https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app",
     "https://dunkin-demand-intellig-git-ac2e0c-neil-barots-projects-55b3b305.vercel.app",
     "https://dunkin-demand-intelligence-412kpu9ma.vercel.app",
+    "https://dunkin-demand-intelligence-h7bvxrxzh.vercel.app"
 ]
 
-frontend_urls = os.getenv("FRONTEND_URLS") or os.getenv("FRONTEND_URL")
-if frontend_urls:
-    origins = [u.strip() for u in frontend_urls.split(",") if u.strip()]
-else:
-    origins = DEFAULT_ORIGINS
+# Regex pattern to allow any Vercel preview/deployment link for this project
+VERCEL_PATTERN = re.compile(r"https://dunkin-demand-intelligence-.*\.vercel\.app$")
 
-# Configure CORS with explicit origins to allow credentials safely when needed.
-CORS(app, resources={r"/*": {"origins": origins}}, supports_credentials=True)
+def is_allowed_origin(origin):
+    if not origin:
+        return False
+    # Allow local development
+    if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
+        return True
+    # Allow specifically defined origins or anything matching the project's Vercel pattern
+    if origin in DEFAULT_ORIGINS or VERCEL_PATTERN.match(origin):
+        return True
+    return False
 
+# 2. CONFIGURE CORS ONCE
+# This setup handles dynamic origins and allows credentials (cookies/auth headers) safely
+CORS(app, origins=is_allowed_origin, supports_credentials=True)
+
+# 3. IMPORT ROUTES (Using absolute imports to prevent Railway/Render errors)
 from routes.products import products_bp
 from routes.daily_entry import daily_bp
 from routes.auth import auth_bp
@@ -53,6 +65,7 @@ from routes.forecast_raw import bp as forecast_raw_bp
 from routes.manager_context import bp as manager_context_bp
 from routes.users import bp as users_bp
 
+# 4. REGISTER BLUEPRINTS
 app.register_blueprint(products_bp, url_prefix="/api/v1/products")
 app.register_blueprint(daily_bp, url_prefix="/api/v1/daily")
 app.register_blueprint(auth_bp, url_prefix="/api/v1/auth")
@@ -65,10 +78,12 @@ app.register_blueprint(forecast_v1_bp, url_prefix="/api/v1")
 app.register_blueprint(forecast_accuracy_bp, url_prefix="/api/v1/forecast/accuracy")
 app.register_blueprint(forecast_learning_bp, url_prefix="/api/v1/forecast/learning")
 app.register_blueprint(forecast_approval_bp, url_prefix="/api/v1/forecast/approvals")
+app.register_blueprint(waste_submission_bp, url_prefix="/api/v1/waste_submission")
 app.register_blueprint(dashboard_bp, url_prefix="/api/v1/dashboard")
 app.register_blueprint(system_health_bp, url_prefix="/api/v1")
+app.register_blueprint(qr_bp, url_prefix="/api/v1/qr")
 
-# Newly added table route blueprints
+# Table route blueprints
 app.register_blueprint(calendar_events_bp, url_prefix="/api/v1/calendar_events")
 app.register_blueprint(daily_production_bp, url_prefix="/api/v1/daily_production")
 app.register_blueprint(daily_production_plan_bp, url_prefix="/api/v1/daily_production_plan")
@@ -80,7 +95,6 @@ app.register_blueprint(forecast_history_bp, url_prefix="/api/v1/forecast_history
 app.register_blueprint(forecast_raw_bp, url_prefix="/api/v1/forecast_raw")
 app.register_blueprint(manager_context_bp, url_prefix="/api/v1/manager_context")
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
-
 
 @app.get("/")
 def home():

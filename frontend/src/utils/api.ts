@@ -1,22 +1,31 @@
+// Always prioritize the environment variable, then the Render production URL
 const API_BASE =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+  import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
-export async function apiFetch(
-  path: string,
-  options: RequestInit = {}
-) {
-  const res = await fetch(`${API_BASE}${path}`, {
+export async function apiFetch(path: string, options: RequestInit = {}) {
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  
+  const res = await fetch(`${API_BASE}${normalizedPath}`, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {})
     },
-    credentials: "include",
-    ...options
+    // Required for set-cookie headers to work across domains
+    credentials: "include", 
+    mode: 'cors'
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || "API error");
+    // Try to parse JSON error message if available
+    try {
+      const jsonError = JSON.parse(text);
+      throw new Error(jsonError.message || jsonError.error || "API error");
+    } catch {
+      throw new Error(text || `API Error ${res.status}`);
+    }
   }
 
   return res.json();
