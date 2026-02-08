@@ -1,6 +1,6 @@
 import os
 import re
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -8,30 +8,40 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# List of known production domains
+# 1. DEFINE ALLOWED ORIGINS
 DEFAULT_ORIGINS = [
     "https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app",
-    "https://dunkin-demand-intelligence-h7bvxrxzh.vercel.app"
+    "https://dunkin-demand-intelligence-h7bvxrxzh.vercel.app",
+    "https://dunkin-demand-intelligence.vercel.app"
 ]
 
-# Regex to allow ANY Vercel preview/deployment link for your project
 VERCEL_PATTERN = re.compile(r"https://dunkin-demand-intelligence(-.*)?\.vercel\.app$")
 
 def is_allowed_origin(origin):
     if not origin:
         return False
-    # 1. Allow local dev
     if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
         return True
-    # 2. Allow specific list or any matching Vercel pattern
     if origin in DEFAULT_ORIGINS or VERCEL_PATTERN.match(origin):
         return True
     return False
 
-# Configure CORS ONCE with the dynamic origin function
-CORS(app, origins=is_allowed_origin, supports_credentials=True)
+# 2. CONFIGURE CORS
+# We set origins to a dummy value to avoid the iteration error, 
+# then override it in the hook below.
+CORS(app, supports_credentials=True)
 
-# 3. IMPORT ROUTES (Using absolute imports to prevent Railway/Render errors)
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin')
+    if is_allowed_origin(origin):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS,PUT,DELETE'
+    return response
+
+# 3. IMPORT ROUTES (Absolute imports)
 from routes.products import products_bp
 from routes.daily_entry import daily_bp
 from routes.auth import auth_bp
