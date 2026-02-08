@@ -56,29 +56,35 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#FFF7F2' }}>
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden relative">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden relative border border-gray-100">
           {/* Close button */}
           <button
             onClick={onClose}
             className="absolute top-4 left-4 z-10 p-2 rounded-full hover:bg-white/20 transition-all"
-            style={{ color: 'white' }}
+            style={{ color: '#333' }}
           >
             <X size={24} />
           </button>
 
-          {/* Pink header bar */}
-          <div className="py-6 px-8" style={{ backgroundColor: '#DA1884' }}>
-            <h2 className="text-white text-center">
-              {mode === 'login' ? 'Welcome Back!' : 'Join Dunkin\u2019 Demand Intelligence'}
-            </h2>
+          {/* Header */}
+          <div className="py-8 px-8 flex items-center gap-4" style={{ backgroundColor: '#FFF0F6' }}>
+            <div className="rounded-full bg-gradient-to-br from-[#FF671F] to-[#DA1884] w-12 h-12 flex items-center justify-center text-white shadow-md">
+              <span className="font-bold">DD</span>
+            </div>
+            <div>
+              <h2 className="text-gray-800 text-lg font-semibold">
+                {mode === 'login' ? 'Welcome Back' : 'Create Your Account'}
+              </h2>
+              <p className="text-sm text-gray-500">Dunkin Demand Intelligence — insights for your store</p>
+            </div>
           </div>
-          
+
           {/* Form content */}
           <form onSubmit={handleSubmit} className="p-8 space-y-5">
             {error && (
-              <div className="p-3 rounded-full text-white text-sm" style={{ backgroundColor: '#FF6B6B' }}>
+              <div className="p-3 rounded-md text-white text-sm" style={{ backgroundColor: '#FF6B6B' }}>
                 {error}
               </div>
             )}
@@ -92,7 +98,7 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                     type="text"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
                     placeholder="John Doe"
                     style={{ 
                       borderColor: '#E0D5C7',
@@ -114,7 +120,7 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all"
+                  className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
                   placeholder="you@dunkin.com"
                   style={{ 
                     borderColor: '#E0D5C7',
@@ -135,7 +141,7 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all"
+                  className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
                   placeholder="••••••••"
                   style={{ 
                     borderColor: '#E0D5C7',
@@ -158,7 +164,7 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                       type="text"
                       value={formData.storeAddress}
                       onChange={(e) => setFormData({ ...formData, storeAddress: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all"
+                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
                       placeholder="123 Main St, Boston, MA"
                       style={{ 
                         borderColor: '#E0D5C7',
@@ -179,7 +185,7 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                       type="text"
                       value={formData.storeNumber}
                       onChange={(e) => setFormData({ ...formData, storeNumber: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all"
+                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
                       placeholder="12345"
                       style={{ 
                         borderColor: '#E0D5C7',

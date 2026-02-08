@@ -79,7 +79,6 @@ class APIClient {
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
     };
 
     if (data) {
@@ -87,7 +86,8 @@ class APIClient {
     }
 
     try {
-      const response = await fetch(url, options);
+      console.debug(`API Request -> ${method} ${url}`, options);
+      const response = await fetch(url, { ...options, mode: 'cors' });
 
       // Handle 401/403 - redirect to login
       if (response.status === 401 || response.status === 403) {
@@ -99,9 +99,9 @@ class APIClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(
-          `API Error ${response.status}: ${errorText || response.statusText}`
-        );
+        const msg = `API Error ${response.status} ${method} ${url}: ${errorText || response.statusText}`;
+        console.error(msg);
+        throw new Error(msg);
       }
 
       const contentType = response.headers.get("content-type");
@@ -111,8 +111,8 @@ class APIClient {
 
       return (await response.text()) as unknown as T;
     } catch (error) {
-      console.error(`API Request Error [${method} ${endpoint}]:`, error);
-      throw error;
+      console.error(`API Request Error [${method} ${url}]:`, error);
+      throw new Error(`Network error while calling ${method} ${url}: ${error}`);
     }
   }
 

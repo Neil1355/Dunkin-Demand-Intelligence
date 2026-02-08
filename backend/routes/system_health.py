@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from models.db import get_connection
+from ..models.db import get_connection
 
 system_health_bp = Blueprint("system_health", __name__)
 

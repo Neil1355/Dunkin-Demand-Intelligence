@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.db import get_connection
+from ..models.db import get_connection
 from datetime import datetime
 
 forecast_approval_bp = Blueprint("forecast_approval", __name__)

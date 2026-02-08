@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.db import get_connection
+from ..models.db import get_connection
 
 daily_bp = Blueprint("daily", __name__)
 
