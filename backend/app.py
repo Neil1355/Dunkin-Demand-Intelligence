@@ -4,36 +4,31 @@ from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# 1. DEFINE ALLOWED ORIGINS
-# These are your specific Vercel domains
+# List of known production domains
 DEFAULT_ORIGINS = [
     "https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app",
-    "https://dunkin-demand-intellig-git-ac2e0c-neil-barots-projects-55b3b305.vercel.app",
-    "https://dunkin-demand-intelligence-412kpu9ma.vercel.app",
     "https://dunkin-demand-intelligence-h7bvxrxzh.vercel.app"
 ]
 
-# Regex pattern to allow any Vercel preview/deployment link for this project
-VERCEL_PATTERN = re.compile(r"https://dunkin-demand-intelligence-.*\.vercel\.app$")
+# Regex to allow ANY Vercel preview/deployment link for your project
+VERCEL_PATTERN = re.compile(r"https://dunkin-demand-intelligence(-.*)?\.vercel\.app$")
 
 def is_allowed_origin(origin):
     if not origin:
         return False
-    # Allow local development
+    # 1. Allow local dev
     if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
         return True
-    # Allow specifically defined origins or anything matching the project's Vercel pattern
+    # 2. Allow specific list or any matching Vercel pattern
     if origin in DEFAULT_ORIGINS or VERCEL_PATTERN.match(origin):
         return True
     return False
 
-# 2. CONFIGURE CORS ONCE
-# This setup handles dynamic origins and allows credentials (cookies/auth headers) safely
+# Configure CORS ONCE with the dynamic origin function
 CORS(app, origins=is_allowed_origin, supports_credentials=True)
 
 # 3. IMPORT ROUTES (Using absolute imports to prevent Railway/Render errors)

@@ -87,7 +87,7 @@ class APIClient {
 
     try {
       console.debug(`API Request -> ${method} ${url}`, options);
-      const response = await fetch(url, { ...options, mode: 'cors' });
+      const response = await fetch(url, { ...options, mode: 'cors', credentials: 'include' });
 
       // Handle 401/403 - redirect to login
       if (response.status === 401 || response.status === 403) {

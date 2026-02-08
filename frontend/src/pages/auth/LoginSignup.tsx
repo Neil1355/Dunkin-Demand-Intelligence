@@ -90,11 +90,13 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
             )}
             {mode === 'signup' && (
               <div>
-                <label className="block mb-2" style={{ color: '#8B7355' }}>
+                <label htmlFor="username" className="block mb-2" style={{ color: '#8B7355' }}>
                   Your Name
                 </label>
                 <div className="relative">
                   <input
+                    id="username"
+                    name="username"
                     type="text"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -111,12 +113,14 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
             )}
 
             <div>
-              <label className="block mb-2" style={{ color: '#8B7355' }}>
+              <label htmlFor="email" className="block mb-2" style={{ color: '#8B7355' }}>
                 Email
               </label>
               <div className="relative">
                 <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
                 <input
+                  id="email"
+                  name="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -132,12 +136,14 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
             </div>
 
             <div>
-              <label className="block mb-2" style={{ color: '#8B7355' }}>
+              <label htmlFor="password" className="block mb-2" style={{ color: '#8B7355' }}>
                 Password
               </label>
               <div className="relative">
                 <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
                 <input
+                  id="password"
+                  name="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -155,12 +161,14 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
             {mode === 'signup' && (
               <>
                 <div>
-                  <label className="block mb-2" style={{ color: '#8B7355' }}>
+                  <label htmlFor="storeAddress" className="block mb-2" style={{ color: '#8B7355' }}>
                     Store Address
                   </label>
                   <div className="relative">
                     <MapPin size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
                     <input
+                      id="storeAddress"
+                      name="storeAddress"
                       type="text"
                       value={formData.storeAddress}
                       onChange={(e) => setFormData({ ...formData, storeAddress: e.target.value })}
@@ -176,12 +184,14 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                 </div>
 
                 <div>
-                  <label className="block mb-2" style={{ color: '#8B7355' }}>
+                  <label htmlFor="storeNumber" className="block mb-2" style={{ color: '#8B7355' }}>
                     Store Number
                   </label>
                   <div className="relative">
                     <Hash size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
                     <input
+                      id="storeNumber"
+                      name="storeNumber"
                       type="text"
                       value={formData.storeNumber}
                       onChange={(e) => setFormData({ ...formData, storeNumber: e.target.value })}
