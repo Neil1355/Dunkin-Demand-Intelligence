@@ -5,9 +5,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 load_dotenv()
 
-print("DATABASE_URL LOADED:", os.getenv("DATABASE_URL"))
-
-
 app = Flask(__name__)
 
 # Allow frontend (Vercel) to call backend

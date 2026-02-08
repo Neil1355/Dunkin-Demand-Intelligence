@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, abort
 from models.user_model import create_user, authenticate_user
-from backend.utils.validation import validate_json
+from utils.validation import validate_json
 
 # JSON schema for signup/login
 signup_schema = {

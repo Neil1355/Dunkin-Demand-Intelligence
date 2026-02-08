@@ -1,7 +1,7 @@
 """JSON Schema validation helper for Flask routes.
 
 Usage:
-    from backend.utils.validation import validate_json
+    from utils.validation import validate_json
     @bp.route('/', methods=['POST'])
     def create():
         payload = validate_json(request, schema)

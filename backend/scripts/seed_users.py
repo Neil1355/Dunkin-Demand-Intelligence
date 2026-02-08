@@ -6,7 +6,7 @@ Run with the project's virtualenv active:
 
 This uses `create_user` to insert users and will populate the new `password_hash` column.
 """
-from backend.models.user_model import create_user
+from models.user_model import create_user
 
 def main():
     users = [
