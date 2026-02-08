@@ -1,7 +1,7 @@
 from flask import Blueprint, send_file
 import pandas as pd
 from openpyxl.styles import PatternFill
-from ..models.db import get_connection
+from models.db import get_connection
 
 export_bp = Blueprint("export", __name__)
 

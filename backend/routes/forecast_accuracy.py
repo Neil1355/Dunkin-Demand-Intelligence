@@ -10,8 +10,8 @@ DO NOT:
 Read-only or controlled writes only.
 """
 from flask import Blueprint, request, jsonify
-from ..models.db import get_connection
-from ..services.forecast_accuracy import compute_forecast_accuracy
+from models.db import get_connection
+from services.forecast_accuracy import compute_forecast_accuracy
 
 forecast_accuracy_bp = Blueprint("forecast_accuracy", __name__)
 

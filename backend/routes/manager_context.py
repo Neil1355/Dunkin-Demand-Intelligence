@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, abort
-from ..models.db import get_connection
+from models.db import get_connection
 
 bp = Blueprint('manager_context', __name__, url_prefix='/api/v1/manager_context')
 

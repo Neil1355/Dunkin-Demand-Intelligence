@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, abort
-from ..models.db import get_connection
+from models.db import get_connection
 
 bp = Blueprint('calendar_events', __name__, url_prefix='/api/v1/calendar_events')
 

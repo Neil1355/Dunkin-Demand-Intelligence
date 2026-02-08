@@ -1,7 +1,7 @@
 from flask import Blueprint, request, send_file, jsonify
 import pandas as pd
 from datetime import timedelta
-from ..models.db import get_connection
+from models.db import get_connection
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment
 

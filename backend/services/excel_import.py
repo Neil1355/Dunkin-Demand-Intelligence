@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import pandas as pd
-from ..models.db import get_connection
+from models.db import get_connection
 
 excel_bp = Blueprint("excel", __name__, url_prefix="/excel")
 

@@ -19,7 +19,7 @@ print("DEBUG USING:", os.getenv("DATABASE_URL"))
 print("DEBUG ENV PATH:", ENV_PATH)
 print("ENV FILE EXISTS:", os.path.exists(ENV_PATH))
 
-from ..models.db import get_connection
+from models.db import get_connection
 
 
 # ---------------------------------------------------------

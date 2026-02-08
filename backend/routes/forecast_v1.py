@@ -11,9 +11,9 @@ Read-only or controlled writes only.
 """
 from flask import Blueprint, request, jsonify
 from datetime import date, timedelta
-from ..models.db import get_connection
-from ..services.forecast_engine import generate_forecast
-from ..services.context_adjuster import apply_context_adjustment
+from models.db import get_connection
+from services.forecast_engine import generate_forecast
+from services.context_adjuster import apply_context_adjustment
 print("DEBUG: forecast_v1 loaded with target_date parsing")
 forecast_v1_bp = Blueprint("forecast_v1", __name__)
 

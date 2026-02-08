@@ -1,8 +1,7 @@
 from datetime import date
 from flask import Blueprint, request, jsonify
-from ..models.db import get_connection
-from ..services.forecast_accuracy import compute_forecast_accuracy
-
+from models.db import get_connection
+from services.forecast_accuracy import compute_forecast_accuracy
 waste_submission_bp = Blueprint("waste_submission", __name__)
 
 @waste_submission_bp.route("/submit", methods=["POST"])
@@ -71,7 +70,7 @@ def get_pending_waste():
     return jsonify(rows)
 
 from flask import Blueprint, request, jsonify
-from ..models.db import get_connection
+from models.db import get_connection
 from datetime import date
 
 # 1. DEFINE BLUEPRINT FIRST
