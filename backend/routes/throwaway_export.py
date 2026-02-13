@@ -71,12 +71,16 @@ def export_throwaway():
     # Build data structure: {product_name: [am_day1, pm_day1, am_day2, pm_day2, ...]}
         data = {}
         for product in products:
-            product_name = product[1]
+            product_name = product['product_name']
             data[product_name] = [0] * 14  # 7 days × 2 (AM/PM)
 
         # Fill in actual data
         for row in rows:
-            product_name, date, produced, waste = row
+            product_name = row['product_name']
+            date = row['date']
+            produced = row['produced']
+            waste = row['waste']
+            
             if product_name not in data:
                 continue
             
