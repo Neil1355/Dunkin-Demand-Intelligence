@@ -49,18 +49,19 @@ def export_throwaway():
         cur.execute("""
             SELECT 
                 p.product_name,
-                dp.production_date AS date,
-                COALESCE(dp.quantity_produced, 0) AS produced,
-                COALESCE(dt.quantity_thrown, 0) AS waste
+                dp.date,
+                COALESCE(dp.quantity, 0) AS produced,
+                COALESCE(dt.waste, 0) AS waste
             FROM products p
             LEFT JOIN daily_production dp ON p.product_id = dp.product_id
                 AND dp.store_id = %s
-                AND dp.production_date BETWEEN %s AND %s
+                AND dp.date BETWEEN %s AND %s
             LEFT JOIN daily_throwaway dt ON p.product_id = dt.product_id
                 AND dt.store_id = %s
-                AND dt.throwaway_date BETWEEN %s AND %s
+                AND dt.date BETWEEN %s AND %s
+                AND dp.date = dt.date
             WHERE p.is_active = TRUE
-            ORDER BY p.product_type, p.product_name, dp.production_date
+            ORDER BY p.product_type, p.product_name, dp.date
         """, (store_id, dates[0], dates[-1], store_id, dates[0], dates[-1]))
 
         rows = cur.fetchall()
