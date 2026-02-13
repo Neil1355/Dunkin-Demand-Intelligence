@@ -23,10 +23,29 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
   const [newItemName, setNewItemName] = useState('');
   const [addingType, setAddingType] = useState<'donut' | 'munchkin' | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
   );
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setHistoryLoading(true);
+        const result = await apiFetch("/forecast_history?store_id=12345&days=7");
+        setHistoryData(result || []);
+      } catch (err) {
+        console.error("Failed to load history:", err);
+        setHistoryData([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    
+    fetchHistory();
+  }, []);
 
   const wasteData = [
     { day: 'Mon', waste: 12, sales: 88 },
@@ -617,17 +636,23 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
           {activeTab === 'history' && (
             <div className="bg-white rounded-3xl p-8 shadow-lg">
               <h3 className="mb-6" style={{ color: '#FF671F' }}>Production History</h3>
-              <div className="space-y-3">
-                {['Nov 26, 2025', 'Nov 25, 2025', 'Nov 24, 2025', 'Nov 23, 2025', 'Nov 22, 2025'].map((date, idx) => (
-                  <div key={date} className="flex items-center justify-between p-4 rounded-2xl hover:shadow-md transition-all" style={{ backgroundColor: '#FFF8F0' }}>
-                    <span style={{ color: '#8B7355' }}>{date}</span>
-                    <div className="flex gap-6">
-                      <span style={{ color: '#FF671F' }}>Production: {850 - idx * 15}</span>
-                      <span style={{ color: '#DA1884' }}>Waste: {8 - idx}%</span>
+              {historyLoading ? (
+                <div style={{ color: '#8B7355' }}>Loading history...</div>
+              ) : historyData.length === 0 ? (
+                <div style={{ color: '#8B7355' }}>No historical data available yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {historyData.slice(0, 5).map((entry, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-4 rounded-2xl hover:shadow-md transition-all" style={{ backgroundColor: '#FFF8F0' }}>
+                      <span style={{ color: '#8B7355' }}>{entry.date || `Day ${idx + 1}`}</span>
+                      <div className="flex gap-6">
+                        <span style={{ color: '#FF671F' }}>Production: {entry.production || '—'}</span>
+                        <span style={{ color: '#DA1884' }}>Waste: {entry.waste_pct ? entry.waste_pct + '%' : '—'}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
