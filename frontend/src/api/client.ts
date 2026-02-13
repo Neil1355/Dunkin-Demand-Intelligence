@@ -25,8 +25,6 @@ export interface SignupRequest {
   name: string;
   email: string;
   password: string;
-  store_address: string;
-  store_number: string;
 }
 
 export interface SignupResponse {
@@ -140,16 +138,12 @@ class APIClient {
   async signup(
     name: string,
     email: string,
-    password: string,
-    storeAddress: string,
-    storeNumber: string
+    password: string
   ): Promise<SignupResponse> {
     const response = await this.request<SignupResponse>("/auth/signup", "POST", {
       name,
       email,
       password,
-      store_address: storeAddress,
-      store_number: storeNumber,
     });
 
     // Store user info in localStorage

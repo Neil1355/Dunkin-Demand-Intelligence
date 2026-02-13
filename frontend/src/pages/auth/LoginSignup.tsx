@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, MapPin, Hash, X } from 'lucide-react';
+import { Mail, Lock, X } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface LoginSignupProps {
@@ -13,12 +13,11 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    storeAddress: '',
-    storeNumber: '',
     username: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +36,7 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
         const response = await apiClient.signup(
           formData.username || formData.email.split('@')[0],
           formData.email,
-          formData.password,
-          formData.storeAddress,
-          formData.storeNumber
+          formData.password
         );
         if (response.status === 'success' && response.user) {
           onLogin(response.user.name);
@@ -84,8 +81,27 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
           {/* Form content */}
           <form onSubmit={handleSubmit} className="p-8 space-y-5">
             {error && (
-              <div className="p-3 rounded-md text-white text-sm" style={{ backgroundColor: '#FF6B6B' }}>
-                {error}
+              <div className="p-4 rounded-lg text-white text-sm flex items-start justify-between" style={{ backgroundColor: '#FF6B6B' }}>
+                <span>{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError('')}
+                  className="ml-2 font-bold hover:opacity-80"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {successMessage && (
+              <div className="p-4 rounded-lg text-white text-sm flex items-start justify-between" style={{ backgroundColor: '#51CF66' }}>
+                <span>{successMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => setSuccessMessage('')}
+                  className="ml-2 font-bold hover:opacity-80"
+                >
+                  ✕
+                </button>
               </div>
             )}
             {mode === 'signup' && (
@@ -157,56 +173,6 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                 />
               </div>
             </div>
-
-            {mode === 'signup' && (
-              <>
-                <div>
-                  <label htmlFor="storeAddress" className="block mb-2" style={{ color: '#8B7355' }}>
-                    Store Address
-                  </label>
-                  <div className="relative">
-                    <MapPin size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
-                    <input
-                      id="storeAddress"
-                      name="storeAddress"
-                      type="text"
-                      value={formData.storeAddress}
-                      onChange={(e) => setFormData({ ...formData, storeAddress: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
-                      placeholder="123 Main St, Boston, MA"
-                      style={{ 
-                        borderColor: '#E0D5C7',
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#FF671F'}
-                      onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="storeNumber" className="block mb-2" style={{ color: '#8B7355' }}>
-                    Store Number
-                  </label>
-                  <div className="relative">
-                    <Hash size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
-                    <input
-                      id="storeNumber"
-                      name="storeNumber"
-                      type="text"
-                      value={formData.storeNumber}
-                      onChange={(e) => setFormData({ ...formData, storeNumber: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
-                      placeholder="12345"
-                      style={{ 
-                        borderColor: '#E0D5C7',
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#FF671F'}
-                      onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
 
             <div className="flex gap-3 pt-4">
               {mode === 'login' ? (
