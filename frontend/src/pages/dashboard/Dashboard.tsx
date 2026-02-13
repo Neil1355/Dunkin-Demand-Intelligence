@@ -25,6 +25,8 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
   const [forecastLoading, setForecastLoading] = useState(false);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<any>({ production: null, waste_pct: null, forecast: null });
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
@@ -44,7 +46,28 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
       }
     };
     
+    const fetchDashboardData = async () => {
+      try {
+        setDashboardLoading(true);
+        const today = new Date().toISOString().split('T')[0];
+        const result = await apiFetch(`/dashboard/daily?store_id=12345&date=${today}`);
+        
+        // Calculate totals from result
+        const production = result.reduce((sum: number, item: any) => sum + (item.final_quantity || 0), 0);
+        const waste = result.reduce((sum: number, item: any) => sum + (item.waste_quantity || 0), 0);
+        const waste_pct = production > 0 ? ((waste / production) * 100).toFixed(1) : '0.0';
+        
+        setDashboardData({ production, waste_pct, forecast: 798 }); // Forecast still placeholder
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+        setDashboardData({ production: null, waste_pct: null, forecast: null });
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+    
     fetchHistory();
+    fetchDashboardData();
   }, []);
 
   const wasteData = [
@@ -308,15 +331,21 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Today's Production</div>
-                  <div className="text-3xl" style={{ color: '#FF671F' }}>842 Units</div>
+                  <div className="text-3xl" style={{ color: '#FF671F' }}>
+                    {dashboardLoading ? '—' : dashboardData.production !== null ? `${dashboardData.production} Units` : '—'}
+                  </div>
                 </div>
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Predicted Waste</div>
-                  <div className="text-3xl" style={{ color: '#DA1884' }}>5.2%</div>
+                  <div className="text-3xl" style={{ color: '#DA1884' }}>
+                    {dashboardLoading ? '—' : dashboardData.waste_pct !== null ? `${dashboardData.waste_pct}%` : '—'}
+                  </div>
                 </div>
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Tomorrow's Forecast</div>
-                  <div className="text-3xl" style={{ color: '#FF671F' }}>798 Units</div>
+                  <div className="text-3xl" style={{ color: '#FF671F' }}>
+                    {dashboardData.forecast !== null ? `${dashboardData.forecast} Units` : '—'}
+                  </div>
                 </div>
               </div>
 

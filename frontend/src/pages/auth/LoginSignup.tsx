@@ -22,15 +22,17 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
 
     try {
       if (mode === 'login') {
         const response = await apiClient.login(formData.email, formData.password);
         if (response.status === 'success' && response.user) {
-          onLogin(response.user.name);
+          setSuccessMessage('Login successful!');
+          setTimeout(() => onLogin(response.user!.name), 500);
         } else {
-          setError(response.message || 'Login failed');
+          setError(response.message || 'Invalid email or password');
         }
       } else {
         const response = await apiClient.signup(
@@ -39,7 +41,8 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
           formData.password
         );
         if (response.status === 'success' && response.user) {
-          onLogin(response.user.name);
+          setSuccessMessage('Account created successfully!');
+          setTimeout(() => onLogin(response.user!.name), 500);
         } else {
           setError(response.message || 'Signup failed');
         }
