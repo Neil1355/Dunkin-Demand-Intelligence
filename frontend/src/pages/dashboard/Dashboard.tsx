@@ -201,15 +201,34 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
       const baseUrl = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence-landing-page.onrender.com/api/v1';
       const url = `${baseUrl}/throwaway/export?store_id=12345&week_start=${weekStart}`;
       
-      // Trigger download
+      // Fetch first to check for errors
+      const response = await fetch(url, { credentials: 'include' });
+      
+      if (!response.ok) {
+        // Try to parse error message
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Export failed');
+        } else {
+          throw new Error(`Export failed: ${response.statusText}`);
+        }
+      }
+      
+      // Success - trigger download
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.download = `dunkin_export_${weekStart}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
     } catch (err) {
-      alert('Failed to export data: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      alert('Export failed: ' + errorMsg);
       console.error('Export error:', err);
     }
   };
