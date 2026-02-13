@@ -1,6 +1,5 @@
 import React from 'react';
 import { TrendingUp, Coffee } from 'lucide-react';
-import heroBg from '../../../public/Gemini_Generated_Image_wcpry5wcpry5wcpr.png';
 
 interface HeroProps {
   onGetStarted: () => void;
@@ -9,44 +8,45 @@ interface HeroProps {
 export function Hero({ onGetStarted }: HeroProps) {
   return (
     <section 
-      className="relative overflow-hidden"
+      className="relative overflow-hidden min-h-screen flex items-center"
       style={{
-        backgroundImage: `url(${heroBg})`,
+        backgroundImage: 'url(/Gemini_Generated_Image_wcpry5wcpry5wcpr.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundColor: '#FFF8F0'
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat'
       }}
     >
       {/* Dark overlay for text readability */}
-      <div className="absolute inset-0 bg-black/40"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/50 to-black/40"></div>
       
-      <div className="max-w-7xl mx-auto px-6 py-24 grid md:grid-cols-2 gap-12 items-center relative z-10">
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg">
+      <div className="max-w-7xl mx-auto px-6 py-32 relative z-10 flex items-center justify-between w-full">
+        <div className="flex-1">
+          <h1 className="text-5xl md:text-6xl font-bold text-white drop-shadow-2xl mb-6">
             Dunkin Demand Intelligence
           </h1>
-          <p className="mt-6 text-xl text-white/95 drop-shadow-md">
+          <p className="text-2xl text-white/95 drop-shadow-lg mb-8 max-w-lg">
             Optimizing production through data-driven insights.
           </p>
           <button
             onClick={onGetStarted}
-            className="mt-8 px-8 py-4 rounded-full text-white transition-all hover:scale-105 shadow-lg font-semibold"
+            className="px-10 py-4 rounded-full text-white transition-all hover:scale-105 shadow-lg font-semibold text-lg"
             style={{ backgroundColor: '#FF671F' }}
           >
             Get Started
           </button>
         </div>
         
-        <div className="relative">
-          <div className="bg-white/95 rounded-3xl shadow-2xl p-8 transform rotate-2 hover:rotate-0 transition-transform">
+        <div className="flex-1 hidden md:flex justify-end">
+          <div className="bg-white/95 rounded-3xl shadow-2xl p-8 w-full max-w-sm">
             <div className="flex items-center gap-4 mb-6">
               <Coffee size={48} style={{ color: '#DA1884' }} />
               <div>
                 <div className="text-sm" style={{ color: '#8B7355' }}>Today's Forecast</div>
-                <div className="text-3xl" style={{ color: '#FF671F' }}>85 Dozen</div>
+                <div className="text-3xl font-bold" style={{ color: '#FF671F' }}>85 Dozen</div>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-green-600">
+            <div className="flex items-center gap-2 text-green-600 font-semibold">
               <TrendingUp size={20} />
               <span>12% less waste this week</span>
             </div>
