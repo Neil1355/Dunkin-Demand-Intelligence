@@ -68,7 +68,7 @@ def export_throwaway():
         cur.close()
         conn.close()
 
-    # Build data structure: {product_name: [am_day1, pm_day1, am_day2, pm_day2, ...]}
+        # Build data structure: {product_name: [am_day1, pm_day1, am_day2, pm_day2, ...]}
         data = {}
         for product in products:
             product_name = product['product_name']
@@ -93,37 +93,113 @@ def export_throwaway():
                 except (ValueError, IndexError):
                     continue
 
-        # Create Excel with proper formatting
+        # Group products by type
+        product_groups = {
+            'croissant': [],
+            'bagel': [],
+            'donut': [],
+            'muffin': [],
+            'bakery': [],
+            'munchkin': [],
+            'other': []
+        }
+        
+        for product in products:
+            product_type = product['product_type']
+            product_name = product['product_name']
+            if product_type in product_groups:
+                product_groups[product_type].append(product_name)
+            else:
+                product_groups['other'].append(product_name)
+
+        # Create Excel with proper formatting matching template
         rows_list = []
         
-        # Header row 1: Week title
-        header_row_1 = ["Product"] + [dates[0].strftime("%m/%d/%y")] + [""] * 13
-        rows_list.append(header_row_1)
+        # Row 0: Store info
+        store_row = [f"Store PC# : {store_id}"] + [""] * 14
+        rows_list.append(store_row)
         
-        # Header row 2: Base date
-        header_row_2 = [""] + [dates[0].strftime("%B %d, %Y")] + [""] * 13
-        rows_list.append(header_row_2)
+        # Row 1: Dates
+        date_row = ["DATE:"] + [dates[i // 2].strftime("%m/%d/%y") if i % 2 == 0 else "" for i in range(14)]
+        rows_list.append(date_row)
         
-        # Empty row
-        rows_list.append([""] * 15)
+        # Row 2: Day names
+        day_row = [""]
+        for date in dates:
+            day_name = date.strftime("%a").upper()
+            day_row.extend([day_name, ""])
+        rows_list.append(day_row)
         
-        # Day header row
-        day_headers = [""]
-        for i, date in enumerate(dates):
-            day_name = date.strftime("%A")
-            day_headers.extend([day_name, ""])
-        rows_list.append(day_headers)
-        
-        # AM/PM sub-header row
-        am_pm_headers = ["Product"]
+        # Row 3: AM/PM headers
+        am_pm_headers = [""]
         for _ in range(7):
             am_pm_headers.extend(["AM", "PM"])
         rows_list.append(am_pm_headers)
+
+        # Add products by category with section headers
+        category_order = [
+            ('croissant', 'Plain Croissants'),
+            ('bagel', 'Bagels'),
+            ('donut', 'Donuts'),
+            ('muffin', 'Muffins'),
+            ('bakery', 'Fancies'),
+            ('munchkin', 'Munchkins'),
+            ('other', 'Other Items')
+        ]
         
-        # Data rows
-        for product_name, values in data.items():
-            row = [product_name] + values
-            rows_list.append(row)
+        total_produced = [0] * 7
+        total_waste = [0] * 7
+        
+        for product_type, category_name in category_order:
+            items = product_groups.get(product_type, [])
+            if not items:
+                continue
+            
+            # Add category header row (bold, will be formatted later)
+            category_row = [category_name] + [""] * 14
+            rows_list.append(category_row)
+            
+            # Add products in this category
+            for product_name in items:
+                values = data.get(product_name, [0] * 14)
+                row = [product_name] + values
+                rows_list.append(row)
+                
+                # Accumulate totals
+                for day in range(7):
+                    total_produced[day] += values[day * 2]
+                    total_waste[day] += values[day * 2 + 1]
+            
+            # Add empty row after each category
+            rows_list.append([""] * 15)
+        
+        # Add totals section
+        rows_list.append([""] * 15)  # Empty row
+        
+        # Donuts Bought (total produced)
+        bought_row = ["Donuts Bought"]
+        for val in total_produced:
+            bought_row.extend([val if val > 0 else "", ""])
+        rows_list.append(bought_row)
+        
+        # Calculate Donuts Sold
+        sold_row = ["Donuts Sold"]
+        for day in range(7):
+            sold = total_produced[day] - total_waste[day]
+            sold_row.extend([sold if sold > 0 else "", ""])
+        rows_list.append(sold_row)
+        
+        # Difference
+        diff_row = ["Difference"]
+        for val in total_waste:
+            diff_row.extend([val if val > 0 else "", ""])
+        rows_list.append(diff_row)
+        
+        # Throwaway (waste in PM columns)
+        throw_row = ["Throwaway"]
+        for val in total_waste:
+            throw_row.extend(["", val if val > 0 else ""])
+        rows_list.append(throw_row)
 
         # Create DataFrame and export
         df = pd.DataFrame(rows_list)
@@ -134,25 +210,80 @@ def export_throwaway():
         try:
             df.to_excel(filepath, index=False, header=False)
             
-            # Apply formatting
+            # Apply formatting to match template
             wb = load_workbook(filepath)
             ws = wb.active
             
-            # Format header rows
-            for col in range(1, 16):
-                ws.cell(1, col).font = Font(bold=True, size=12)
-                ws.cell(4, col).font = Font(bold=True)
-                ws.cell(5, col).font = Font(bold=True)
-                ws.cell(5, col).alignment = Alignment(horizontal='center')
+            # Blue fill for category headers
+            blue_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            light_blue_fill = PatternFill(start_color="B4C7E7", end_color="B4C7E7", fill_type="solid")
             
-            # Format product column
-            for row in range(6, len(rows_list) + 1):
-                ws.cell(row, 1).font = Font(bold=True)
+            # Format row 1 (Store info) - bold
+            ws.cell(1, 1).font = Font(bold=True, size=11)
+            
+            # Format row 2 (Dates) - bold
+            for col in range(1, 16):
+                cell = ws.cell(2, col)
+                if cell.value:
+                    cell.font = Font(bold=True, size=10)
+            
+            # Format row 3 (Day names) - bold, centered
+            for col in range(1, 16):
+                cell = ws.cell(3, col)
+                if cell.value:
+                    cell.font = Font(bold=True)
+                    cell.alignment = Alignment(horizontal='center')
+            
+            # Format row 4 (AM/PM) - bold, centered
+            for col in range(1, 16):
+                cell = ws.cell(4, col)
+                if cell.value:
+                    cell.font = Font(bold=True)
+                    cell.alignment = Alignment(horizontal='center')
+            
+            # Track category header rows for blue formatting
+            category_header_rows = []
+            
+            # Format data rows starting from row 5
+            for row_idx in range(5, len(rows_list) + 1):
+                cell_a = ws.cell(row_idx, 1)
+                cell_value = str(cell_a.value).strip() if cell_a.value else ""
+                
+                # Check if this is a category header
+                is_category = False
+                category_names = ['Plain Croissants', 'Bagels', 'Donuts', 'Muffins', 'Fancies', 'Munchkins', 'Other Items']
+                if cell_value in category_names:
+                    is_category = True
+                    category_header_rows.append(row_idx)
+                
+                # Check if this is a totals row
+                is_total = cell_value in ['Donuts Bought', 'Donuts Sold', 'Difference', 'Throwaway']
+                
+                if is_category:
+                    # Category header: Blue background, bold, white text
+                    for col in range(1, 16):
+                        cell = ws.cell(row_idx, col)
+                        cell.fill = blue_fill
+                        cell.font = Font(bold=True, color="FFFFFF", size=11)
+                elif is_total:
+                    # Totals row: bold
+                    cell_a.font = Font(bold=True)
+                else:
+                    # Regular product row: bold first column only
+                    if cell_value:
+                        cell_a.font = Font(bold=False)
             
             # Set column widths
-            ws.column_dimensions['A'].width = 25
-            for col in range(2, 16):
-                ws.column_dimensions[chr(64 + col)].width = 10
+            ws.column_dimensions['A'].width = 30
+            for col_letter in ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']:
+                ws.column_dimensions[col_letter].width = 8
+            
+            # Center align all data columns (B-O)
+            for row_idx in range(1, len(rows_list) + 1):
+                for col in range(2, 16):
+                    cell = ws.cell(row_idx, col)
+                    if cell.value is not None and cell.value != "":
+                        cell.alignment = Alignment(horizontal='center',vertical='center')
             
             wb.save(filepath)
 
