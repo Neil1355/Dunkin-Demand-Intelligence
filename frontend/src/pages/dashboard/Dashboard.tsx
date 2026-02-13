@@ -23,16 +23,39 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
   const [newItemName, setNewItemName] = useState('');
   const [addingType, setAddingType] = useState<'donut' | 'munchkin' | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastPredictions, setForecastPredictions] = useState<any[]>([]);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>({ production: null, waste_pct: null, forecast: null });
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [weeklyDataLoading, setWeeklyDataLoading] = useState(true);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
   );
+
+  // Fetch dashboard data
+  async function fetchDashboardData() {
+    try {
+      setDashboardLoading(true);
+      const today = new Date().toISOString().split('T')[0];
+      const result = await apiFetch(`/dashboard/daily?store_id=12345&date=${today}`);
+      
+      // Calculate totals from result
+      const production = result.reduce((sum: number, item: any) => sum + (item.final_quantity || 0), 0);
+      const waste = result.reduce((sum: number, item: any) => sum + (item.waste_quantity || 0), 0);
+      const waste_pct = production > 0 ? ((waste / production) * 100).toFixed(1) : '0.0';
+      
+      setDashboardData({ production, waste_pct, forecast: null }); // Forecast loaded separately
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+      setDashboardData({ production: null, waste_pct: null, forecast: null });
+    } finally {
+      setDashboardLoading(false);
+    }
+  }
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -45,26 +68,6 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
         setHistoryData([]);
       } finally {
         setHistoryLoading(false);
-      }
-    };
-    
-    const fetchDashboardData = async () => {
-      try {
-        setDashboardLoading(true);
-        const today = new Date().toISOString().split('T')[0];
-        const result = await apiFetch(`/dashboard/daily?store_id=12345&date=${today}`);
-        
-        // Calculate totals from result
-        const production = result.reduce((sum: number, item: any) => sum + (item.final_quantity || 0), 0);
-        const waste = result.reduce((sum: number, item: any) => sum + (item.waste_quantity || 0), 0);
-        const waste_pct = production > 0 ? ((waste / production) * 100).toFixed(1) : '0.0';
-        
-        setDashboardData({ production, waste_pct, forecast: 798 }); // Forecast still placeholder
-      } catch (err) {
-        console.error("Failed to load dashboard data:", err);
-        setDashboardData({ production: null, waste_pct: null, forecast: null });
-      } finally {
-        setDashboardLoading(false);
       }
     };
     
@@ -84,6 +87,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     fetchHistory();
     fetchDashboardData();
     fetchWeeklyData();
+    fetchForecastPredictions();
   }, []);
 
   // Use weekly data for charts if available, otherwise use placeholder
@@ -123,18 +127,33 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     { id: 'history', icon: History, label: 'History' }
   ];
 
-  const handleAddItem = (type: 'donut' | 'munchkin') => {
+  const handleAddItem = async (type: 'donut' | 'munchkin') => {
     if (!newItemName.trim()) return;
 
-    if (type === 'donut') {
-      onUpdateDonutTypes([...donutTypes, newItemName]);
-    } else {
-      onUpdateMunchkinTypes([...munchkinTypes, newItemName]);
-    }
+    try {
+      // Save to database first
+      const response = await apiFetch('/products/create', {
+        method: 'POST',
+        body: JSON.stringify({ product_name: newItemName.trim() })
+      });
 
-    setQuantities({ ...quantities, [newItemName]: 0 });
-    setNewItemName('');
-    setAddingType(null);
+      if (response.status === 'success') {
+        // Update local state
+        if (type === 'donut') {
+          onUpdateDonutTypes([...donutTypes, newItemName]);
+        } else {
+          onUpdateMunchkinTypes([...munchkinTypes, newItemName]);
+        }
+
+        setQuantities({ ...quantities, [newItemName]: 0 });
+        setNewItemName('');
+        setAddingType(null);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to add product';
+      alert(`Error adding product: ${errorMsg}`);
+      console.error('Product creation error:', err);
+    }
   };
 
   const handleRemoveItem = (type: 'donut' | 'munchkin', index: number) => {
@@ -168,63 +187,53 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     setEditingItem(null);
   };
 
-  const handleExportData = () => {
-    // Create CSV format for Excel
-    const headers = ['Product Name', 'Quantity Produced', 'Waste'];
-    const rows = Object.keys(quantities).map(name => [
-      name,
-      quantities[name],
-      Math.max(0, Math.floor(quantities[name] * 0.08))
-    ]);
-    
-    // Add metadata rows
-    const metadata = [
-      ['Store Number', '12345'],
-      ['Date', new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })],
-      []
-    ];
-    
-    // Combine all rows
-    const allRows = [
-      ...metadata,
-      headers,
-      ...rows
-    ];
-    
-    // Convert to CSV
-    const csv = allRows.map(row => 
-      row.map(cell => 
-        typeof cell === 'string' && cell.includes(',') 
-          ? `"${cell}"` 
-          : cell
-      ).join(',')
-    ).join('\n');
-    
-    // Create blob and download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dunkin-data-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleExportData = async () => {
+    try {
+      // Get current week's Sunday
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysToSunday = dayOfWeek === 0 ? 0 : dayOfWeek;
+      const sunday = new Date(today);
+      sunday.setDate(today.getDate() - daysToSunday);
+      const weekStart = sunday.toISOString().split('T')[0];
+
+      // Call backend export endpoint
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence-landing-page.onrender.com/api/v1';
+      const url = `${baseUrl}/throwaway/export?store_id=12345&week_start=${weekStart}`;
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `dunkin_export_${weekStart}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert('Failed to export data: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      console.error('Export error:', err);
+    }
   };
 
   async function handleGenerateForecast() {
     setForecastLoading(true);
     try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const targetDate = tomorrow.toISOString().split("T")[0];
+      
       const result = await apiFetch("/forecast/raw", {
         method: "POST",
         body: JSON.stringify({
           store_id: 12345,
-          target_date: new Date().toISOString().split("T")[0]
+          target_date: targetDate
         })
       });
       
       alert("Forecast generated successfully!");
       console.log("Forecast result:", result);
+      
+      // Fetch the generated forecast to display
+      await fetchForecastPredictions(targetDate);
     } catch (err) {
       alert("Failed to generate forecast: " + (err instanceof Error ? err.message : 'Unknown error'));
       console.error(err);
@@ -233,50 +242,97 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     }
   }
 
-  async function handleSaveData() {
-    const items = Object.keys(quantities).map((key) => ({
-      name: key,
-      produced: quantities[key],
-      waste: Math.max(0, Math.floor(quantities[key] * 0.08))
-    }));
-
+  async function fetchForecastPredictions(targetDate?: string) {
     try {
-      // Save each item using correct API endpoint
+      setForecastLoading(true);
+      const tomorrow = targetDate || (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split("T")[0];
+      })();
+      
+      const result = await apiFetch(`/forecast?store_id=12345&target_date=${tomorrow}`);
+      
+      if (result.products) {
+        setForecastPredictions(result.products);
+        
+        // Update dashboard forecast total
+        const totalForecast = result.products.reduce((sum: number, p: any) => sum + (p.final_quantity || p.predicted_quantity || 0), 0);
+        setDashboardData((prev: any) => ({ ...prev, forecast: totalForecast }));
+      }
+    } catch (err) {
+      console.error("Failed to load forecast predictions:", err);
+      setForecastPredictions([]);
+    } finally {
+      setForecastLoading(false);
+    }
+  }
+
+  async function handleSaveData() {
+    setSaveLoading(true);
+    try {
       const today = new Date().toISOString().split("T")[0];
       const storeId = 12345;
       
-      // Simple product name to ID mapping
-      const productNameMap: Record<string, number> = {
-        'Glazed': 1,
-        'Chocolate Frosted': 2,
-        'Boston Kreme': 3,
-        'Strawberry Frosted': 4,
-        'Glazed Munchkin': 5,
-        'Chocolate Munchkin': 6,
-        'Jelly Munchkin': 7
-      };
+      // Fetch all products to get IDs
+      const productsList = await apiFetch("/products/list");
+      
+      // Create name-to-ID mapping
+      const productNameMap: Record<string, number> = {};
+      productsList.forEach((p: any) => {
+        productNameMap[p.product_name.toLowerCase()] = p.product_id;
+      });
+      
+      const items = Object.keys(quantities).map((key) => ({
+        name: key,
+        produced: quantities[key],
+        waste: Math.max(0, Math.floor(quantities[key] * 0.08))
+      }));
+
+      let savedCount = 0;
+      let errorCount = 0;
       
       for (const item of items) {
         if (item.produced === 0 && item.waste === 0) continue;
         
-        const productId = productNameMap[item.name] || 1;
+        const productId = productNameMap[item.name.toLowerCase()];
         
-        await apiFetch("/daily", {
-          method: "POST",
-          body: JSON.stringify({
-            store_id: storeId,
-            product_id: productId,
-            date: today,
-            produced: item.produced,
-            waste: item.waste
-          })
-        });
+        if (!productId) {
+          console.warn(`Product "${item.name}" not found in database, skipping`);
+          errorCount++;
+          continue;
+        }
+        
+        try {
+          await apiFetch("/daily", {
+            method: "POST",
+            body: JSON.stringify({
+              store_id: storeId,
+              product_id: productId,
+              date: today,
+              produced: item.produced,
+              waste: item.waste
+            })
+          });
+          savedCount++;
+        } catch (err) {
+          console.error(`Failed to save ${item.name}:`, err);
+          errorCount++;
+        }
       }
       
-      alert("Saved Successfully!");
+      if (errorCount === 0) {
+        alert(`✅ Successfully saved ${savedCount} items!`);
+        // Refresh dashboard data
+        fetchDashboardData();
+      } else {
+        alert(`⚠️ Saved ${savedCount} items, ${errorCount} failed. Check console for details.`);
+      }
     } catch (err) {
-      alert("Failed to save data: " + (err instanceof Error ? err.message : 'Unknown error'));
-      console.error(err);
+      alert("❌ Failed to save data: " + (err instanceof Error ? err.message : 'Unknown error'));
+      console.error('Save error:', err);
+    } finally {
+      setSaveLoading(false);
     }
   }
 
@@ -658,10 +714,11 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
 
                 <button
                   onClick={handleSaveData}
-                  className="w-full mt-8 py-4 rounded-full text-white"
+                  disabled={saveLoading}
+                  className="w-full mt-8 py-4 rounded-full text-white transition-opacity disabled:opacity-50"
                   style={{ backgroundColor: '#FF671F' }}
                 >
-                  Save Today's Data
+                  {saveLoading ? 'Saving...' : "Save Today's Data"}
                 </button>
               </div>
             </div>
@@ -674,31 +731,28 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
                 Based on historical data, day of week, and recent trends, here's tomorrow's recommended production:
               </p>
 
-              {/* Donuts Predictions */}
-              <div className="mb-8">
-                <h4 className="mb-4" style={{ color: '#DA1884' }}>Donuts</h4>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {donutTypes.map((donut, idx) => (
-                    <div key={donut} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
-                      <span style={{ color: '#8B7355' }}>{donut}</span>
-                      <span style={{ color: '#FF671F' }}>{Math.floor(Math.random() * 30) + 30} units</span>
-                    </div>
-                  ))}
+              {forecastLoading ? (
+                <div className="text-center py-8" style={{ color: '#8B7355' }}>Loading forecast...</div>
+              ) : forecastPredictions.length === 0 ? (
+                <div className="text-center py-8" style={{ color: '#8B7355' }}>
+                  No forecast available. Click below to generate tomorrow's forecast.
                 </div>
-              </div>
-
-              {/* Munchkins Predictions */}
-              <div className="mb-8">
-                <h4 className="mb-4" style={{ color: '#DA1884' }}>Munchkins</h4>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {munchkinTypes.map((munchkin, idx) => (
-                    <div key={munchkin} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
-                      <span style={{ color: '#8B7355' }}>{munchkin}</span>
-                      <span style={{ color: '#DA1884' }}>{Math.floor(Math.random() * 50) + 100} units</span>
+              ) : (
+                <>
+                  {/* All Products */}
+                  <div className="mb-8">
+                    <h4 className="mb-4" style={{ color: '#DA1884' }}>All Products</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {forecastPredictions.map((product) => (
+                        <div key={product.product_id} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
+                          <span style={{ color: '#8B7355' }}>{product.product_name}</span>
+                          <span style={{ color: '#FF671F' }}>{product.final_quantity || product.predicted_quantity || 0} units</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                </>
+              )}
 
               <button
                 onClick={handleGenerateForecast}

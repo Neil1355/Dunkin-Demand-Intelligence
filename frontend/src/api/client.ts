@@ -87,12 +87,15 @@ class APIClient {
       console.debug(`API Request -> ${method} ${url}`, options);
       const response = await fetch(url, { ...options, mode: 'cors', credentials: 'include' });
 
-      // Handle 401/403 - redirect to login
+      // Handle 401/403 - redirect to login (except for auth endpoints themselves)
       if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem("user");
-        localStorage.removeItem("auth_token");
-        window.location.href = "/login";
-        throw new Error("Unauthorized - please log in again");
+        // Don't redirect if this is already an auth endpoint (login/signup)
+        if (!endpoint.includes('/auth/login') && !endpoint.includes('/auth/signup')) {
+          localStorage.removeItem("user");
+          localStorage.removeItem("auth_token");
+          window.location.href = "/login";
+          throw new Error("Unauthorized - please log in again");
+        }
       }
 
       if (!response.ok) {
