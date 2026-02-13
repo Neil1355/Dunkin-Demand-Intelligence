@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { AlertCircle, Download, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 
+const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
+
 interface QRCodeResponse {
   store_id: number;
   qr_base64: string;
@@ -37,7 +39,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     setError(null);
     setSuccessMessage(null);
     try {
-      const response = await fetch(`/api/v1/qr/store/${storeId}`, {
+      const response = await fetch(`${API_BASE}/qr/store/${storeId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -60,7 +62,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
 
   const checkQRStatus = async () => {
     try {
-      const response = await fetch(`/api/v1/qr/status/${storeId}`, {
+      const response = await fetch(`${API_BASE}/qr/status/${storeId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -81,8 +83,8 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     setSuccessMessage(null);
     try {
       const endpoint = withHeader 
-        ? `/api/v1/qr/download/${storeId}` 
-        : `/api/v1/qr/download/${storeId}/simple`;
+        ? `${API_BASE}/qr/download/${storeId}` 
+        : `${API_BASE}/qr/download/${storeId}/simple`;
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -121,7 +123,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     setError(null);
     setSuccessMessage(null);
     try {
-      const response = await fetch(`/api/v1/qr/regenerate/${storeId}`, {
+      const response = await fetch(`${API_BASE}/qr/regenerate/${storeId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
