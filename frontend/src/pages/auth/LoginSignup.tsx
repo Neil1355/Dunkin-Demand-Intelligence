@@ -7,9 +7,10 @@ interface LoginSignupProps {
   onLogin: (username: string) => void;
   onToggleMode: () => void;
   onClose: () => void;
+  onForgotPassword?: () => void;
 }
 
-export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignupProps) {
+export function LoginSignup({ mode, onLogin, onToggleMode, onClose, onForgotPassword }: LoginSignupProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -183,6 +184,19 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                 />
               </div>
             </div>
+
+            {mode === 'login' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="text-sm transition-colors hover:underline"
+                  style={{ color: '#FF671F' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               {mode === 'login' ? (

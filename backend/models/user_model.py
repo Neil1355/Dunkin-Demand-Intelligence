@@ -1,6 +1,8 @@
 from models.db import get_connection
 import bcrypt
 from psycopg2.extras import RealDictCursor
+import secrets
+from datetime import datetime, timedelta
 
 
 def create_user(name, email, password):
@@ -67,3 +69,140 @@ def authenticate_user(email, password):
     conn.close()
 
     return {"status": "success", "user": safe_user}
+
+
+def request_password_reset(email):
+    """Generate a password reset token and store it in the database.
+    
+    Returns token and expiration info on success.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Check if user exists
+    cursor.execute("SELECT id FROM users WHERE email=%s", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.close()
+        conn.close()
+        # For security, don't reveal if email exists
+        return {"status": "success", "message": "If email exists, reset link will be sent"}
+
+    # Generate secure token
+    token = secrets.token_urlsafe(32)
+    user_id = user["id"]
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+
+    # Store token
+    cursor.execute(
+        """
+        INSERT INTO password_reset_tokens (user_id, token, expires_at)
+        VALUES (%s, %s, %s)
+        """,
+        (user_id, token, expires_at),
+    )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return {"status": "success", "token": token, "email": email, "expires_at": expires_at.isoformat()}
+
+
+def validate_reset_token(token):
+    """Validate a password reset token.
+    
+    Returns user info if token is valid and not expired.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT prt.id, prt.user_id, prt.expires_at, u.email, u.name
+        FROM password_reset_tokens prt
+        JOIN users u ON prt.user_id = u.id
+        WHERE prt.token = %s AND prt.used_at IS NULL
+        """,
+        (token,),
+    )
+    token_record = cursor.fetchone()
+
+    if not token_record:
+        cursor.close()
+        conn.close()
+        return {"status": "error", "message": "Invalid or expired token"}
+
+    # Check expiration
+    if datetime.fromisoformat(token_record["expires_at"].isoformat()) < datetime.utcnow():
+        cursor.close()
+        conn.close()
+        return {"status": "error", "message": "Token has expired"}
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "status": "success",
+        "user_id": token_record["user_id"],
+        "email": token_record["email"],
+        "name": token_record["name"],
+    }
+
+
+def reset_password(token, new_password):
+    """Reset user password using a valid reset token.
+    
+    Returns success/error status.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Validate token
+    cursor.execute(
+        """
+        SELECT prt.id, prt.user_id, prt.expires_at
+        FROM password_reset_tokens prt
+        WHERE prt.token = %s AND prt.used_at IS NULL
+        """,
+        (token,),
+    )
+    token_record = cursor.fetchone()
+
+    if not token_record:
+        cursor.close()
+        conn.close()
+        return {"status": "error", "message": "Invalid or already-used token"}
+
+    # Check expiration
+    expires_at = token_record.get("expires_at")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    
+    if expires_at < datetime.utcnow():
+        cursor.close()
+        conn.close()
+        return {"status": "error", "message": "Token has expired"}
+
+    # Hash new password
+    hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode('utf-8')
+    user_id = token_record["user_id"]
+    token_id = token_record["id"]
+
+    # Update password and mark token as used
+    cursor.execute(
+        "UPDATE users SET password_hash=%s WHERE id=%s",
+        (hashed, user_id),
+    )
+
+    cursor.execute(
+        "UPDATE password_reset_tokens SET used_at=NOW() WHERE id=%s",
+        (token_id,),
+    )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return {"status": "success", "message": "Password reset successfully"}
