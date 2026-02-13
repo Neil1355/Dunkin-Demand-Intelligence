@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, Coffee } from 'lucide-react';
+import heroBg from '../../../public/Gemini_Generated_Image_wcpry5wcpry5wcpr.png';
 
 interface HeroProps {
   onGetStarted: () => void;
@@ -10,7 +11,7 @@ export function Hero({ onGetStarted }: HeroProps) {
     <section 
       className="relative overflow-hidden"
       style={{
-        backgroundImage: 'url(/Gemini_Generated_Image_wcpry5wcpry5wcpr.png)',
+        backgroundImage: `url(${heroBg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundColor: '#FFF8F0'
