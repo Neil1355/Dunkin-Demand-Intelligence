@@ -192,7 +192,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
             </button>
             <div>
               <div style={{ color: '#FF671F' }}>Store #12345</div>
-              <div className="text-sm" style={{ color: '#8B7355' }}>Thursday, November 27, 2025</div>
+              <div className="text-sm" style={{ color: '#8B7355' }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
             </div>
           </div>
 
@@ -213,7 +213,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
               {/* Greeting */}
               <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-3xl p-6 shadow-lg">
                 <h2 style={{ color: '#FF671F' }}>Hey {username}! 👋</h2>
-                <p style={{ color: '#8B7355' }}>Welcome back to your Dunkin\u2019 Demand Intelligence dashboard.</p>
+                <p style={{ color: '#8B7355' }}>Welcome back to your Dunkin' Demand Intelligence dashboard.</p>
               </div>
 
               {/* Quick Stats */}
