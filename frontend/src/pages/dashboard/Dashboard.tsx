@@ -22,6 +22,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
   const [editingItem, setEditingItem] = useState<{ type: 'donut' | 'munchkin'; index: number; value: string } | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [addingType, setAddingType] = useState<'donut' | 'munchkin' | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
@@ -139,6 +140,27 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  async function handleGenerateForecast() {
+    setForecastLoading(true);
+    try {
+      const result = await apiFetch("/forecast/raw", {
+        method: "POST",
+        body: JSON.stringify({
+          store_id: 12345,
+          target_date: new Date().toISOString().split("T")[0]
+        })
+      });
+      
+      alert("Forecast generated successfully!");
+      console.log("Forecast result:", result);
+    } catch (err) {
+      alert("Failed to generate forecast: " + (err instanceof Error ? err.message : 'Unknown error'));
+      console.error(err);
+    } finally {
+      setForecastLoading(false);
+    }
+  }
 
   async function handleSaveData() {
     const items = Object.keys(quantities).map((key) => ({
@@ -582,10 +604,12 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
               </div>
 
               <button
-                className="w-full py-4 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                onClick={handleGenerateForecast}
+                disabled={forecastLoading}
+                className="w-full py-4 rounded-full text-white transition-all hover:scale-105 shadow-lg disabled:opacity-50"
                 style={{ backgroundColor: '#FF671F' }}
               >
-                Generate Tomorrow's Forecast
+                {forecastLoading ? 'Generating...' : "Generate Tomorrow's Forecast"}
               </button>
             </div>
           )}
