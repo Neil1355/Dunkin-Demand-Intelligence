@@ -97,21 +97,43 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
   };
 
   const handleExportData = () => {
-    const data = {
-      store: 'Store #12345',
-      date: new Date().toLocaleDateString(),
-      quantities,
-      donutTypes,
-      munchkinTypes,
-      wasteData,
-      trendData
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // Create CSV format for Excel
+    const headers = ['Product Name', 'Quantity Produced', 'Waste'];
+    const rows = Object.keys(quantities).map(name => [
+      name,
+      quantities[name],
+      Math.max(0, Math.floor(quantities[name] * 0.08))
+    ]);
+    
+    // Add metadata rows
+    const metadata = [
+      ['Store Number', '12345'],
+      ['Date', new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })],
+      []
+    ];
+    
+    // Combine all rows
+    const allRows = [
+      ...metadata,
+      headers,
+      ...rows
+    ];
+    
+    // Convert to CSV
+    const csv = allRows.map(row => 
+      row.map(cell => 
+        typeof cell === 'string' && cell.includes(',') 
+          ? `"${cell}"` 
+          : cell
+      ).join(',')
+    ).join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dunkin-data-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `dunkin-data-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -126,16 +148,41 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     }));
 
     try {
-      await apiFetch("/dashboard/daily", {
-        method: "POST",
-        body: JSON.stringify({
-          date: new Date().toISOString().split("T")[0],
-          items: items
-        })
-      });
+      // Save each item using correct API endpoint
+      const today = new Date().toISOString().split("T")[0];
+      const storeId = 12345;
+      
+      // Simple product name to ID mapping
+      const productNameMap: Record<string, number> = {
+        'Glazed': 1,
+        'Chocolate Frosted': 2,
+        'Boston Kreme': 3,
+        'Strawberry Frosted': 4,
+        'Glazed Munchkin': 5,
+        'Chocolate Munchkin': 6,
+        'Jelly Munchkin': 7
+      };
+      
+      for (const item of items) {
+        if (item.produced === 0 && item.waste === 0) continue;
+        
+        const productId = productNameMap[item.name] || 1;
+        
+        await apiFetch("/daily", {
+          method: "POST",
+          body: JSON.stringify({
+            store_id: storeId,
+            product_id: productId,
+            date: today,
+            produced: item.produced,
+            waste: item.waste
+          })
+        });
+      }
+      
       alert("Saved Successfully!");
     } catch (err) {
-      alert("Failed to save data");
+      alert("Failed to save data: " + (err instanceof Error ? err.message : 'Unknown error'));
       console.error(err);
     }
   }
