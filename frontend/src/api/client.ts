@@ -100,9 +100,26 @@ class APIClient {
 
       if (!response.ok) {
         const errorText = await response.text();
-        const msg = `API Error ${response.status} ${method} ${url}: ${errorText || response.statusText}`;
-        console.error(msg);
-        throw new Error(msg);
+        let userMessage = response.statusText;
+        
+        // Try to parse JSON error response for user-friendly message
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.message) {
+            userMessage = errorJson.message;
+          }
+        } catch (e) {
+          // If not JSON, use the raw text if it's short enough
+          if (errorText && errorText.length < 100) {
+            userMessage = errorText;
+          }
+        }
+        
+        // Log technical details for debugging
+        console.error(`API Error ${response.status} ${method} ${url}:`, errorText);
+        
+        // Throw user-friendly message
+        throw new Error(userMessage);
       }
 
       const contentType = response.headers.get("content-type");
@@ -112,8 +129,14 @@ class APIClient {
 
       return (await response.text()) as unknown as T;
     } catch (error) {
+      // If it's already our formatted error, just re-throw it
+      if (error instanceof Error && !error.message.includes('Network error')) {
+        throw error;
+      }
+      
+      // Otherwise it's a network/fetch error
       console.error(`API Request Error [${method} ${url}]:`, error);
-      throw new Error(`Network error while calling ${method} ${url}: ${error}`);
+      throw new Error('Network error. Please check your connection and try again.');
     }
   }
 

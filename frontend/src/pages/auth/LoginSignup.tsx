@@ -48,7 +48,14 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      // Clean up common error messages for better UX
+      let errorMsg = err.message || 'An error occurred. Please try again.';
+      
+      if (errorMsg.toLowerCase().includes('user not found') || errorMsg.toLowerCase().includes('invalid')) {
+        errorMsg = mode === 'login' ? 'Incorrect email or password' : errorMsg;
+      }
+      
+      setError(errorMsg);
       console.error('Auth error:', err);
     } finally {
       setLoading(false);
