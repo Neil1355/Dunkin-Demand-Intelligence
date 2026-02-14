@@ -39,13 +39,20 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     setError(null);
     setSuccessMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/qr/store/${storeId}`, {
+      const url = `${API_BASE}/qr/store/${storeId}`;
+      console.log('Fetching QR from:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
 
+      console.log('QR Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch QR code: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('QR Error response:', errorText);
+        throw new Error(`Failed to fetch QR code: ${response.status} ${response.statusText}`);
       }
 
       const data: QRCodeResponse = await response.json();
@@ -54,6 +61,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
       setSuccessMessage(`QR Code ${data.status === 'created' ? 'created' : 'loaded'} successfully`);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to fetch QR code';
+      console.error('QR Fetch Error:', err);
       setError(errorMsg);
     } finally {
       setLoading(false);
