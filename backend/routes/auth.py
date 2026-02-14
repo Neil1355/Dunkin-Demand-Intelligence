@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, abort
 from models.user_model import create_user, authenticate_user, request_password_reset, validate_reset_token, reset_password
 from utils.validation import validate_json
+from utils.jwt_handler import create_access_token, create_refresh_token
 import os
 from services.email_service import send_password_reset_email
 
