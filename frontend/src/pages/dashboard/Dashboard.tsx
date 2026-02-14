@@ -428,9 +428,19 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               {/* Greeting */}
-              <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-3xl p-6 shadow-lg">
-                <h2 style={{ color: '#FF671F' }}>Hey {username}! 👋</h2>
-                <p style={{ color: '#8B7355' }}>Welcome back to your Dunkin' Demand Intelligence dashboard.</p>
+              <div 
+                className="relative rounded-3xl p-6 shadow-lg overflow-hidden"
+                style={{
+                  backgroundImage: 'url(/Gemini_Generated_Image_wcpry5wcpry5wcpr.png)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/50"></div>
+                <div className="relative z-10">
+                  <h2 className="text-white drop-shadow-lg">Hey {username}! 👋</h2>
+                  <p className="text-white/90 drop-shadow-md">Welcome back to your Dunkin' Demand Intelligence dashboard.</p>
+                </div>
               </div>
 
               {/* Quick Stats */}
