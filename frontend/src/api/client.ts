@@ -17,6 +17,7 @@ export interface LoginResponse {
     id: number;
     name: string;
     email: string;
+    store_id?: number;
   };
   message?: string;
 }
@@ -33,6 +34,7 @@ export interface SignupResponse {
     id: number;
     name: string;
     email: string;
+    store_id?: number;
   };
   message?: string;
 }
@@ -61,9 +63,19 @@ export interface HealthResponse {
 
 class APIClient {
   private baseUrl: string;
+  private currentUser: { id: number; name: string; email: string } | null = null;
 
   constructor(baseUrl: string = API_BASE) {
     this.baseUrl = baseUrl;
+    // Load user from sessionStorage if available (temporary storage, cleared on page close)
+    const storedUser = sessionStorage.getItem("user");
+    if (storedUser) {
+      try {
+        this.currentUser = JSON.parse(storedUser);
+      } catch (e) {
+        console.warn("Could not parse stored user");
+      }
+    }
   }
 
   private async request<T>(
@@ -77,6 +89,8 @@ class APIClient {
       headers: {
         "Content-Type": "application/json",
       },
+      // CRITICAL: Include credentials to send httpOnly cookies
+      credentials: 'include',
     };
 
     if (data) {
@@ -85,14 +99,13 @@ class APIClient {
 
     try {
       console.debug(`API Request -> ${method} ${url}`, options);
-      const response = await fetch(url, { ...options, mode: 'cors', credentials: 'include' });
+      const response = await fetch(url, options);
 
       // Handle 401/403 - redirect to login (except for auth endpoints themselves)
       if (response.status === 401 || response.status === 403) {
-        // Don't redirect if this is already an auth endpoint (login/signup)
+        // Don't redirect if this is already an auth endpoint
         if (!endpoint.includes('/auth/login') && !endpoint.includes('/auth/signup')) {
-          localStorage.removeItem("user");
-          localStorage.removeItem("auth_token");
+          this.logout();
           window.location.href = "/login";
           throw new Error("Unauthorized - please log in again");
         }
@@ -142,6 +155,7 @@ class APIClient {
 
   /**
    * Login with email and password
+   * Authentication token is stored in httpOnly cookie by backend
    */
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>("/auth/login", "POST", {
@@ -149,10 +163,11 @@ class APIClient {
       password,
     });
 
-    // Store user info in localStorage
+    // Store user info in sessionStorage only (not localStorage - more secure)
     if (response.status === "success" && response.user) {
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("auth_token", response.user.id.toString());
+      this.currentUser = response.user;
+      sessionStorage.setItem("user", JSON.stringify(response.user));
+      // Auth token is now in httpOnly cookie (not in sessionStorage)
     }
 
     return response;
@@ -160,6 +175,7 @@ class APIClient {
 
   /**
    * Signup new user
+   * Authentication token is stored in httpOnly cookie by backend
    */
   async signup(
     name: string,
@@ -172,13 +188,30 @@ class APIClient {
       password,
     });
 
-    // Store user info in localStorage
+    // Store user info in sessionStorage only
     if (response.status === "success" && response.user) {
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("auth_token", response.user.id.toString());
+      this.currentUser = response.user;
+      sessionStorage.setItem("user", JSON.stringify(response.user));
+      // Auth token is now in httpOnly cookie
     }
 
     return response;
+  }
+
+  /**
+   * Logout user - clears session and calls backend to clear cookies
+   */
+  async logout(): Promise<void> {
+    try {
+      await this.request<any>("/auth/logout", "POST");
+    } catch (e) {
+      console.warn("Logout request failed:", e);
+    }
+    
+    // Clear client-side session
+    this.currentUser = null;
+    sessionStorage.removeItem("user");
+    // httpOnly cookies are cleared by backend
   }
 
   /**
@@ -218,26 +251,18 @@ class APIClient {
   }
 
   /**
-   * Get logged-in user from localStorage
+   * Get logged-in user from session memory
    */
   getUser() {
-    const userStr = localStorage.getItem("user");
-    return userStr ? JSON.parse(userStr) : null;
-  }
-
-  /**
-   * Clear user session
-   */
-  logout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("auth_token");
+    return this.currentUser;
   }
 
   /**
    * Check if user is logged in
+   * httpOnly cookies are automatically sent and validated by backend
    */
   isLoggedIn(): boolean {
-    return !!localStorage.getItem("auth_token");
+    return this.currentUser !== null;
   }
 }
 

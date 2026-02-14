@@ -8,6 +8,7 @@ import { apiClient } from './api/client';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [storeId, setStoreId] = useState<number>(12345);
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -49,6 +50,10 @@ export default function App() {
 
   const handleLogin = (name: string) => {
     setUsername(name);
+    const user = apiClient.getUser();
+    if (user && user.store_id) {
+      setStoreId(user.store_id);
+    }
     setIsLoggedIn(true);
     setShowAuth(false);
   };
@@ -86,6 +91,7 @@ export default function App() {
     return (
       <Dashboard 
         username={username}
+        storeId={storeId}
         onLogout={handleLogout}
         donutTypes={donutTypes}
         munchkinTypes={munchkinTypes}

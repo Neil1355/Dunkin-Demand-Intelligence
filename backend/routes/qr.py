@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, send_file, request, current_app
 from models.db import get_connection
+from utils.jwt_handler import require_auth
 import qrcode
 import io
 import base64
@@ -129,9 +130,13 @@ def store_qr_code(store_id, qr_data, qr_url):
 
 
 @qr_bp.route("/store/<int:store_id>", methods=["GET"])
+@require_auth
 def get_or_create_qr(store_id):
-    """Get existing QR code or create if doesn't exist"""
+    """Get existing QR code or create if doesn't exist (requires authentication)"""
     try:
+        # Verify user has access to this store (if store_id tracking is implemented)
+        # For now, just check authentication
+        
         # Check if QR already exists
         existing = qr_code_exists(store_id)
         if existing:
@@ -180,6 +185,7 @@ def get_or_create_qr(store_id):
 
 
 @qr_bp.route("/download/<int:store_id>", methods=["GET"])
+@require_auth
 def download_qr(store_id):
     """Download QR code as PNG image with header"""
     try:
@@ -216,6 +222,7 @@ def download_qr(store_id):
 
 
 @qr_bp.route("/download/<int:store_id>/simple", methods=["GET"])
+@require_auth
 def download_qr_simple(store_id):
     """Download QR code as PNG without header (simple version)"""
     try:
@@ -245,6 +252,7 @@ def download_qr_simple(store_id):
 
 
 @qr_bp.route("/status/<int:store_id>", methods=["GET"])
+@require_auth
 def check_qr_status(store_id):
     """Check if QR code exists for store"""
     try:
@@ -267,6 +275,7 @@ def check_qr_status(store_id):
 
 
 @qr_bp.route("/regenerate/<int:store_id>", methods=["POST"])
+@require_auth
 def regenerate_qr(store_id):
     """Force regenerate QR code for a store"""
     try:

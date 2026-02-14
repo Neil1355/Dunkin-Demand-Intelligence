@@ -11,13 +11,14 @@ import { ManagerQRCode } from '../../components/ManagerQRCode';
 interface DashboardProps {
   onLogout: () => void;
   username: string;
+  storeId: number;
   donutTypes: string[];
   munchkinTypes: string[];
   onUpdateDonutTypes: (types: string[]) => void;
   onUpdateMunchkinTypes: (types: string[]) => void;
 }
 
-export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
+export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingItem, setEditingItem] = useState<{ type: 'donut' | 'munchkin'; index: number; value: string } | null>(null);
@@ -815,7 +816,7 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
               <p className="mb-6" style={{ color: '#8B7355' }}>
                 Generate and manage QR codes for waste submission. Staff can scan these codes to quickly log throwaway/waste data.
               </p>
-              <ManagerQRCode storeId={12345} />
+              <ManagerQRCode storeId={storeId} />
             </div>
           )}
         </div>

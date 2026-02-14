@@ -60,7 +60,44 @@ def signup():
     password = validated.get("password")
 
     result = create_user(name, email, password)
-    return jsonify(result), 201
+    if result.get("status") != "success":
+        return jsonify(result), 400
+    
+    user = result.get("user")
+    # Generate JWT tokens with user and store info
+    access_token = create_access_token({"sub": user["id"], "email": user["email"], "store_id": user.get("store_id", 12345)})
+    refresh_token = create_refresh_token({"sub": user["id"]})
+    
+    # Create response with httpOnly cookies
+    response = jsonify({
+        "status": "success",
+        "user": {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "store_id": user.get("store_id", 12345)
+        }
+    })
+    
+    # Set secure httpOnly cookies
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=True,  # Only sent over HTTPS
+        samesite='Strict',
+        max_age=30*60  # 30 minutes
+    )
+    response.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        max_age=7*24*60*60  # 7 days
+    )
+    
+    return response, 201
 
 
 @auth_bp.post("/login")
@@ -75,7 +112,42 @@ def login():
     result = authenticate_user(email, password)
     if result.get("status") != "success":
         return jsonify(result), 401
-    return jsonify(result), 200
+    
+    user = result.get("user")
+    # Generate JWT tokens with user and store info
+    access_token = create_access_token({"sub": user["id"], "email": user["email"], "store_id": user.get("store_id", 12345)})
+    refresh_token = create_refresh_token({"sub": user["id"]})
+    
+    # Create response with httpOnly cookies
+    response = jsonify({
+        "status": "success",
+        "user": {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "store_id": user.get("store_id", 12345)
+        }
+    })
+    
+    # Set secure httpOnly cookies
+    response.set_cookie(
+        "access_token",
+        access_token,
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        max_age=30*60  # 30 minutes
+    )
+    response.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        max_age=7*24*60*60  # 7 days
+    )
+    
+    return response, 200
 
 @auth_bp.post("/forgot-password")
 def forgot_password():
@@ -135,4 +207,47 @@ def reset_password_endpoint():
     if result.get("status") != "success":
         return jsonify(result), 400
     
+    return jsonify(result), 200
+
+
+@auth_bp.post("/logout")
+def logout():
+    """Logout user by clearing authentication cookies"""
+    response = jsonify({"status": "success", "message": "Logged out successfully"})
+    
+    # Clear the cookies
+    response.delete_cookie("access_token", httponly=True, secure=True, samesite='Strict')
+    response.delete_cookie("refresh_token", httponly=True, secure=True, samesite='Strict')
+    
+    return response, 200
+
+
+@auth_bp.post("/refresh")
+def refresh_access_token():
+    """Refresh access token using refresh token"""
+    refresh_token = request.cookies.get("refresh_token")
+    
+    if not refresh_token:
+        return jsonify({"status": "error", "message": "Refresh token missing"}), 401
+    
+    from utils.jwt_handler import verify_token
+    payload = verify_token(refresh_token)
+    
+    if "error" in payload:
+        return jsonify({"status": "error", "message": "Invalid refresh token"}), 401
+    
+    # Generate new access token
+    new_access_token = create_access_token({"sub": payload.get("sub")})
+    
+    response = jsonify({"status": "success", "message": "Token refreshed"})
+    response.set_cookie(
+        "access_token",
+        new_access_token,
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        max_age=30*60
+    )
+    
+    return response, 200
     return jsonify(result), 200

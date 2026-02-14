@@ -18,9 +18,9 @@ def create_user(name, email, password):
 
     cursor.execute(
         """
-        INSERT INTO users (name, email, password_hash)
-        VALUES (%s, %s, %s)
-        RETURNING id, name, email, created_at
+        INSERT INTO users (name, email, password_hash, store_id)
+        VALUES (%s, %s, %s, 12345)
+        RETURNING id, name, email, created_at, store_id
         """,
         (name, email, hashed),
     )
@@ -42,7 +42,7 @@ def authenticate_user(email, password):
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute(
-        "SELECT id, name, email, created_at, password_hash FROM users WHERE email=%s",
+        "SELECT id, name, email, created_at, store_id, password_hash FROM users WHERE email=%s",
         (email,),
     )
     user = cursor.fetchone()
@@ -63,6 +63,7 @@ def authenticate_user(email, password):
         "name": user["name"],
         "email": user.get("email"),
         "created_at": user.get("created_at"),
+        "store_id": user.get("store_id", 12345),
     }
 
     cursor.close()
