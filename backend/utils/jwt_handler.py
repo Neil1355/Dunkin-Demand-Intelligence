@@ -7,7 +7,8 @@ import jwt
 import os
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, jsonify, current_app
+from typing import Optional, Dict
+from flask import request, jsonify, g
 
 SECRET_KEY = os.getenv('JWT_SECRET_KEY') or 'dev-secret-key-change-in-production'
 ALGORITHM = 'HS256'
@@ -15,7 +16,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 
-def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Generate JWT access token"""
     to_encode = data.copy()
     
@@ -26,7 +27,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     
     to_encode.update({"exp": expire})
     
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  # type: ignore
     return encoded_jwt
 
 
@@ -36,19 +37,21 @@ def create_refresh_token(data: dict) -> str:
     expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
     
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  # type: ignore
     return encoded_jwt
 
 
-def verify_token(token: str) -> dict:
+def verify_token(token: str) -> Dict:
     """Verify JWT token and return decoded payload"""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  # type: ignore
         return payload
-    except jwt.ExpiredSignatureError:
-        return {"error": "Token expired"}
-    except jwt.InvalidTokenError:
-        return {"error": "Invalid token"}
+    except Exception as e:  # Catches ExpiredSignatureError and InvalidTokenError
+        error_name = type(e).__name__
+        if error_name == "ExpiredSignatureError":
+            return {"error": "Token expired"}
+        else:
+            return {"error": "Invalid token"}
 
 
 def require_auth(f):
@@ -77,9 +80,9 @@ def require_auth(f):
         if "error" in payload:
             return jsonify({"status": "error", "message": payload["error"]}), 401
         
-        # Attach user info to request for use in handler
-        request.user_id = payload.get("sub")
-        request.store_id = payload.get("store_id")
+        # Store user info in Flask's g object (request context)
+        g.user_id = payload.get("sub")
+        g.store_id = payload.get("store_id")
         
         return f(*args, **kwargs)
     
@@ -110,12 +113,13 @@ def require_store_access(store_id_param='store_id'):
             if "error" in payload:
                 return jsonify({"status": "error", "message": payload["error"]}), 401
             
-            request.user_id = payload.get("sub")
-            request.store_id = payload.get("store_id")
+            # Store user info in Flask's g object (request context)
+            g.user_id = payload.get("sub")
+            g.store_id = payload.get("store_id")
             
             # Now verify store access
             requested_store_id = kwargs.get(store_id_param) or request.args.get(store_id_param)
-            if requested_store_id and int(requested_store_id) != request.store_id:
+            if requested_store_id and int(requested_store_id) != g.store_id:
                 return jsonify({"status": "error", "message": "Unauthorized access to this store"}), 403
             
             return f(*args, **kwargs)
