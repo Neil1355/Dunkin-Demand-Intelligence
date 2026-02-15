@@ -6,6 +6,13 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  store_id?: number;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -63,7 +70,7 @@ export interface HealthResponse {
 
 class APIClient {
   private baseUrl: string;
-  private currentUser: { id: number; name: string; email: string } | null = null;
+  private currentUser: User | null = null;
 
   constructor(baseUrl: string = API_BASE) {
     this.baseUrl = baseUrl;
@@ -253,7 +260,7 @@ class APIClient {
   /**
    * Get logged-in user from session memory
    */
-  getUser() {
+  getUser(): User | null {
     return this.currentUser;
   }
 
