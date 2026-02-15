@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, Coffee } from 'lucide-react';
+import heroImage from './Gemini_Generated_Image_wcpry5wcpry5wcpr.png';
 
 interface HeroProps {
   onGetStarted: () => void;
@@ -10,17 +11,15 @@ export function Hero({ onGetStarted }: HeroProps) {
     <section 
       className="relative overflow-hidden min-h-screen flex items-center"
       style={{
-        backgroundImage: 'url(/Gemini_Generated_Image_wcpry5wcpry5wcpr.png)',
+        backgroundImage: `url(${heroImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Subtle overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/30 to-transparent"></div>
       
-      <div className="max-w-7xl mx-auto px-6 py-32 relative z-10 flex items-center justify-between w-full">
+      <div className="max-w-7xl mx-auto px-6 py-32 flex items-center justify-between w-full">
         <div className="flex-1">
           <h1 className="text-5xl md:text-6xl font-bold text-white drop-shadow-2xl mb-6">
             Dunkin Demand Intelligence
