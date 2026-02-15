@@ -4,6 +4,7 @@ import { LoginSignup } from './pages/auth/LoginSignup';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 import { ResetPassword } from './pages/auth/ResetPassword';
 import { apiClient } from './api/client';
+import heroImage from './components/landing/Gemini_Generated_Image_wcpry5wcpry5wcpr.png';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -112,7 +113,9 @@ export default function App() {
     }}>
       {/* Hero Section with Background Image */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(255,103,31,0.95) 0%, rgba(218,24,132,0.95) 100%)',
+        backgroundImage: `url(${heroImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         padding: '60px 20px',
         textAlign: 'center',
         color: 'white',
