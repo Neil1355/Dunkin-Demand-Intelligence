@@ -33,6 +33,9 @@ export interface SignupRequest {
   name: string;
   email: string;
   password: string;
+  store_id?: number;
+  phone?: string;
+  role?: string;
 }
 
 export interface SignupResponse {
@@ -187,13 +190,22 @@ class APIClient {
   async signup(
     name: string,
     email: string,
-    password: string
+    password: string,
+    store_id?: number,
+    phone?: string,
+    role?: string
   ): Promise<SignupResponse> {
-    const response = await this.request<SignupResponse>("/auth/signup", "POST", {
+    const payload: any = {
       name,
       email,
       password,
-    });
+    };
+    
+    if (store_id) payload.store_id = store_id;
+    if (phone) payload.phone = phone;
+    if (role) payload.role = role;
+    
+    const response = await this.request<SignupResponse>("/auth/signup", "POST", payload);
 
     // Store user info in sessionStorage only
     if (response.status === "success" && response.user) {

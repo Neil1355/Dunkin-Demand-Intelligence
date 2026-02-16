@@ -22,6 +22,14 @@ def validate_json(request, schema):
     try:
         validate(instance=payload, schema=schema)
     except ValidationError as e:
-        return jsonify({"status": "error", "message": f"Validation error: {e.message}"}), 400
+        # Provide user-friendly error messages
+        error_msg = e.message
+        if "is too short" in error_msg:
+            field_name = e.path[0] if e.path else "Field"
+            if "''" in error_msg or "is too short" in error_msg:
+                error_msg = f"{field_name.capitalize()} is required"
+        elif "format" in error_msg:
+            error_msg = "Please enter a valid email address"
+        return jsonify({"status": "error", "message": error_msg}), 400
 
     return payload

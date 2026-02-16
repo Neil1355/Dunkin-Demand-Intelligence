@@ -5,10 +5,10 @@ import secrets
 from datetime import datetime, timedelta
 
 
-def create_user(name, email, password):
+def create_user(name, email, password, store_id=None, phone=None, role="employee"):
     """Create a new user and store a bcrypt password hash.
 
-    Returns a safe user dict (id, name, email, created_at) on success.
+    Returns a safe user dict (id, name, email, created_at, store_id, phone, role) on success.
     """
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -16,13 +16,17 @@ def create_user(name, email, password):
     # hash and store as utf-8 string
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode('utf-8')
 
+    # Use default store_id if not provided
+    if store_id is None:
+        store_id = 12345
+
     cursor.execute(
         """
-        INSERT INTO users (name, email, password_hash, store_id)
-        VALUES (%s, %s, %s, 12345)
-        RETURNING id, name, email, created_at, store_id
+        INSERT INTO users (name, email, password_hash, store_id, phone, role)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id, name, email, created_at, store_id, phone, role
         """,
-        (name, email, hashed),
+        (name, email, hashed, store_id, phone, role),
     )
 
     user = cursor.fetchone()

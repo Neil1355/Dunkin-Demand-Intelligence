@@ -5,6 +5,7 @@ import { ForgotPassword } from './pages/auth/ForgotPassword';
 import { ResetPassword } from './pages/auth/ResetPassword';
 import { apiClient } from './api/client';
 import heroImage from './components/landing/Gemini_Generated_Image_wcpry5wcpry5wcpr.png';
+import sprinklesBackground from './components/landing/sprinkles background.png';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -106,7 +107,9 @@ export default function App() {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      backgroundColor: '#F5F0E8', 
+      backgroundImage: `url(${sprinklesBackground})`,
+      backgroundRepeat: 'repeat',
+      backgroundSize: '600px 600px',
       display: 'flex', 
       flexDirection: 'column', 
       fontFamily: 'sans-serif'
@@ -115,31 +118,52 @@ export default function App() {
       <div style={{
         backgroundImage: `url(${heroImage})`,
         backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        padding: '60px 20px',
-        textAlign: 'center',
-        color: 'white',
+        backgroundPosition: 'center right',
+        padding: '80px 20px',
+        color: '#4A2C2A',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center'
       }}>
-        {/* Decorative donuts */}
-        <div style={{ position: 'absolute', top: '20px', left: '10%', fontSize: '60px', opacity: '0.2', transform: 'rotate(-15deg)' }}>🍩</div>
-        <div style={{ position: 'absolute', bottom: '30px', right: '15%', fontSize: '80px', opacity: '0.15', transform: 'rotate(25deg)' }}>🍩</div>
-        <div style={{ position: 'absolute', top: '40%', right: '5%', fontSize: '50px', opacity: '0.2', transform: 'rotate(-30deg)' }}>☕</div>
-        
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ fontSize: '72px', marginBottom: '20px' }}>🍩</div>
-          <h1 style={{ marginBottom: '20px', fontSize: '3rem', fontWeight: '900', textShadow: '2px 2px 4px rgba(0,0,0,0.2)' }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(90deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0) 70%)',
+          pointerEvents: 'none'
+        }}></div>
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          maxWidth: '560px',
+          marginLeft: '8%',
+          textAlign: 'left'
+        }}>
+          <h1 style={{
+            marginBottom: '18px',
+            fontSize: '3rem',
+            fontWeight: 800,
+            color: '#BF5F18',
+            fontFamily: '"Montserrat", "Poppins", sans-serif',
+            letterSpacing: '0.2px'
+          }}>
             Dunkin Demand Intelligence
           </h1>
-          <p style={{ fontSize: '1.3rem', marginBottom: '30px', opacity: '0.95' }}>
-            Optimizing production through data-driven insights.
+          <p style={{
+            fontSize: '1.35rem',
+            marginBottom: '30px',
+            color: '#F58220',
+            fontFamily: '"Inter", "Roboto", sans-serif',
+            lineHeight: 1.5,
+            fontWeight: 600
+          }}>
+            Real-time forecasting powered by AI.
           </p>
         </div>
       </div>
 
       {/* Features Section */}
-      <div style={{ padding: '60px 20px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+      <div id="features" style={{ padding: '60px 20px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', marginBottom: '60px' }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.08)', textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '15px' }}>📊</div>
@@ -235,8 +259,130 @@ export default function App() {
       </div>
       
       {/* Footer */}
-      <div style={{ padding: '30px', textAlign: 'center', color: '#8B7355', fontSize: '0.9rem' }}>
-        <p>© 2026 Dunkin Demand Intelligence • Powered by data, perfected by experience 🍩</p>
+      <div style={{ 
+        backgroundColor: '#4A2C2A', 
+        padding: '40px 60px',
+        marginTop: '60px',
+        borderTop: '4px solid #F58220'
+      }}>
+        <div style={{ 
+          maxWidth: '1200px', 
+          margin: '0 auto', 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(3, 1fr)', 
+          gap: '40px',
+          color: '#F5F0E8'
+        }}>
+          {/* Left Column - About */}
+          <div>
+            <h3 style={{ 
+              color: '#F58220', 
+              fontSize: '1.1rem', 
+              marginBottom: '15px',
+              fontFamily: 'Montserrat, sans-serif',
+              fontWeight: 700
+            }}>About</h3>
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
+              Dunkin Demand Intelligence leverages data-driven forecasting to optimize inventory, 
+              reduce waste, and maximize profitability for Dunkin locations.
+            </p>
+          </div>
+
+          {/* Center Column - Quick Links */}
+          <div>
+            <h3 style={{ 
+              color: '#F58220', 
+              fontSize: '1.1rem', 
+              marginBottom: '15px',
+              fontFamily: 'Montserrat, sans-serif',
+              fontWeight: 700
+            }}>Quick Links</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <a 
+                href="#features" 
+                style={{ 
+                  color: '#F5F0E8', 
+                  textDecoration: 'none', 
+                  fontSize: '0.9rem',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#F58220'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#F5F0E8'}
+              >
+                Features
+              </a>
+              <a 
+                href="https://github.com/Neil1355/Dunkin-Demand-Intelligence" 
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ 
+                  color: '#F5F0E8', 
+                  textDecoration: 'none', 
+                  fontSize: '0.9rem',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#F58220'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#F5F0E8'}
+              >
+                GitHub Repository
+              </a>
+              <a 
+                href="https://www.linkedin.com/in/neilbarot5/" 
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ 
+                  color: '#F5F0E8', 
+                  textDecoration: 'none', 
+                  fontSize: '0.9rem',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#F58220'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#F5F0E8'}
+              >
+                LinkedIn
+              </a>
+            </div>
+          </div>
+
+          {/* Right Column - Contact */}
+          <div>
+            <h3 style={{ 
+              color: '#F58220', 
+              fontSize: '1.1rem', 
+              marginBottom: '15px',
+              fontFamily: 'Montserrat, sans-serif',
+              fontWeight: 700
+            }}>Contact</h3>
+            <p style={{ fontSize: '0.9rem', margin: '0 0 10px 0' }}>
+              Created by <strong>Neil Barot</strong>
+            </p>
+            <a 
+              href="mailto:neil.barot.jopspace@gmail.com"
+              style={{ 
+                color: '#F5F0E8', 
+                textDecoration: 'none', 
+                fontSize: '0.9rem',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#F58220'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#F5F0E8'}
+            >
+              neil.barot.jopspace@gmail.com
+            </a>
+          </div>
+        </div>
+
+        {/* Footer Bottom - Copyright */}
+        <div style={{ 
+          textAlign: 'center', 
+          marginTop: '30px', 
+          paddingTop: '25px', 
+          borderTop: '1px solid rgba(245, 240, 232, 0.2)',
+          color: '#F5F0E8',
+          fontSize: '0.85rem'
+        }}>
+          © 2026 Dunkin Demand Intelligence • Powered by data, perfected by experience 🍩
+        </div>
       </div>
     </div>
   );

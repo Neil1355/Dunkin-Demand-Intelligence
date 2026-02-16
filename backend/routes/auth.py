@@ -9,9 +9,12 @@ from services.email_service import send_password_reset_email
 signup_schema = {
     "type": "object",
     "properties": {
-        "name": {"type": "string"},
+        "name": {"type": "string", "minLength": 1},
         "email": {"type": "string", "format": "email"},
-        "password": {"type": "string", "minLength": 6}
+        "password": {"type": "string", "minLength": 6},
+        "store_id": {"type": "integer"},
+        "phone": {"type": "string"},
+        "role": {"type": "string", "enum": ["manager", "assistant_manager", "employee"]}
     },
     "required": ["name", "email", "password"],
     "additionalProperties": False,
@@ -58,8 +61,11 @@ def signup():
     name = validated.get("name")
     email = validated.get("email")
     password = validated.get("password")
+    store_id = validated.get("store_id")
+    phone = validated.get("phone")
+    role = validated.get("role", "employee")
 
-    result = create_user(name, email, password)
+    result = create_user(name, email, password, store_id, phone, role)
     if result.get("status") != "success":
         return jsonify(result), 400
     
