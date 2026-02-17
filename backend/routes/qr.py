@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, send_file, request, current_app
-from models.db import get_connection
+from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
 import qrcode
 import io
@@ -27,7 +27,7 @@ def log_qr_action(store_id, qr_code_id, action='view'):
                 VALUES (%s, %s, %s, %s, %s)
             ''', (qr_code_id, store_id, ip_address, user_agent, action))
             conn.commit()
-        conn.close()
+        return_connection(conn)
     except Exception as e:
         print(f"Error logging QR action: {e}")
 
@@ -39,7 +39,7 @@ def qr_code_exists(store_id):
         with conn.cursor() as cur:
             cur.execute('SELECT id, qr_data, qr_url FROM qr_codes WHERE store_id=%s', (store_id,))
             result = cur.fetchone()
-        conn.close()
+        return_connection(conn)
         return result
     except Exception as e:
         print(f"Error checking QR code: {e}")
@@ -122,7 +122,7 @@ def store_qr_code(store_id, qr_data, qr_url):
             result = cur.fetchone()
             qr_code_id = result['id'] if result else None
             conn.commit()
-        conn.close()
+        return_connection(conn)
         return qr_code_id
     except Exception as e:
         print(f"Error storing QR code: {e}")

@@ -8,6 +8,13 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Initialize database connection pool on startup
+from models.db import init_connection_pool
+try:
+    init_connection_pool()
+except Exception as e:
+    print(f"Warning: Could not initialize connection pool: {e}")
+
 # 1. DEFINE ALLOWED ORIGINS
 DEFAULT_ORIGINS = [
     "https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app",

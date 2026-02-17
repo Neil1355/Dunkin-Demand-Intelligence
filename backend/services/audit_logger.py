@@ -3,7 +3,7 @@ Audit logging service for tracking user actions
 Logs all significant actions (login, data changes, exports, etc.)
 """
 
-from models.db import get_connection
+from models.db import get_connection, return_connection
 from datetime import datetime
 from flask import request
 import os
@@ -73,7 +73,7 @@ class AuditLogger:
                     status
                 ))
                 conn.commit()
-            conn.close()
+            return_connection(conn)
         except Exception as e:
             print(f"Error logging audit action: {e}")
     
@@ -156,7 +156,7 @@ class AuditLogger:
                     LIMIT %s
                 ''', (user_id, limit))
                 rows = cur.fetchall()
-            conn.close()
+            return_connection(conn)
             return rows
         except Exception as e:
             print(f"Error fetching user activity: {e}")
@@ -184,7 +184,7 @@ class AuditLogger:
                 
                 cur.execute(query, params)
                 rows = cur.fetchall()
-            conn.close()
+            return_connection(conn)
             return rows
         except Exception as e:
             print(f"Error fetching recent activity: {e}")

@@ -1,4 +1,4 @@
-from models.db import get_connection
+from models.db import get_connection, return_connection
 import bcrypt
 from psycopg2.extras import RealDictCursor
 import secrets
@@ -31,8 +31,7 @@ def create_user(name, email, password, store_id=None, phone=None, role="employee
 
     user = cursor.fetchone()
     conn.commit()
-    cursor.close()
-    conn.close()
+    return_connection(conn)
 
     return {"status": "success", "user": user}
 
@@ -52,13 +51,16 @@ def authenticate_user(email, password):
     user = cursor.fetchone()
 
     if not user:
+        return_connection(conn)
         return {"status": "error", "message": "User not found"}
 
     pw_hash = user.get("password_hash")
     if not pw_hash:
+        return_connection(conn)
         return {"status": "error", "message": "No password set for user"}
 
     if not bcrypt.checkpw(password.encode(), pw_hash.encode()):
+        return_connection(conn)
         return {"status": "error", "message": "Incorrect password"}
 
     # remove password_hash from returned user
@@ -70,8 +72,7 @@ def authenticate_user(email, password):
         "store_id": user.get("store_id", 12345),
     }
 
-    cursor.close()
-    conn.close()
+    return_connection(conn)
 
     return {"status": "success", "user": safe_user}
 
@@ -89,8 +90,7 @@ def request_password_reset(email):
     user = cursor.fetchone()
 
     if not user:
-        cursor.close()
-        conn.close()
+        return_connection(conn)
         # For security, don't reveal if email exists
         return {"status": "success", "message": "If email exists, reset link will be sent"}
 
@@ -109,8 +109,7 @@ def request_password_reset(email):
     )
 
     conn.commit()
-    cursor.close()
-    conn.close()
+    return_connection(conn)
 
     return {"status": "success", "token": token, "email": email, "expires_at": expires_at.isoformat()}
 
@@ -135,18 +134,15 @@ def validate_reset_token(token):
     token_record = cursor.fetchone()
 
     if not token_record:
-        cursor.close()
-        conn.close()
+        return_connection(conn)
         return {"status": "error", "message": "Invalid or expired token"}
 
     # Check expiration
     if datetime.fromisoformat(token_record["expires_at"].isoformat()) < datetime.utcnow():
-        cursor.close()
-        conn.close()
+        return_connection(conn)
         return {"status": "error", "message": "Token has expired"}
 
-    cursor.close()
-    conn.close()
+    return_connection(conn)
 
     return {
         "status": "success",
@@ -176,8 +172,7 @@ def reset_password(token, new_password):
     token_record = cursor.fetchone()
 
     if not token_record:
-        cursor.close()
-        conn.close()
+        return_connection(conn)
         return {"status": "error", "message": "Invalid or already-used token"}
 
     # Check expiration
@@ -186,8 +181,7 @@ def reset_password(token, new_password):
         expires_at = datetime.fromisoformat(expires_at)
     
     if expires_at < datetime.utcnow():
-        cursor.close()
-        conn.close()
+        return_connection(conn)
         return {"status": "error", "message": "Token has expired"}
 
     # Hash new password
@@ -207,7 +201,6 @@ def reset_password(token, new_password):
     )
 
     conn.commit()
-    cursor.close()
-    conn.close()
+    return_connection(conn)
 
     return {"status": "success", "message": "Password reset successfully"}

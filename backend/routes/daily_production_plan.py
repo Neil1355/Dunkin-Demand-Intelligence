@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, abort
-from models.db import get_connection
+from models.db import get_connection, return_connection
 
 bp = Blueprint('daily_production_plan', __name__, url_prefix='/api/v1/daily_production_plan')
 
@@ -10,7 +10,7 @@ def list_plans():
     with conn.cursor() as cur:
         cur.execute('SELECT * FROM daily_production_plan;')
         rows = cur.fetchall()
-    conn.close()
+    return_connection(conn)
     return jsonify(rows), 200
 
 
@@ -21,7 +21,7 @@ def create_plan():
     with conn.cursor() as cur:
         cur.execute('INSERT INTO daily_production_plan (store_id, product_id, production_date, planned_quantity, source, created_at) VALUES (%s,%s,%s,%s,%s,now());', (data.get('store_id'), data.get('product_id'), data.get('production_date'), data.get('planned_quantity'), data.get('source')))
         conn.commit()
-    conn.close()
+    return_connection(conn)
     return jsonify({'status':'created'}), 201
 
 
@@ -32,7 +32,7 @@ def update_plan():
     with conn.cursor() as cur:
         cur.execute('UPDATE daily_production_plan SET planned_quantity=%s, source=%s WHERE store_id=%s AND product_id=%s AND production_date=%s;', (data.get('planned_quantity'), data.get('source'), data.get('store_id'), data.get('product_id'), data.get('production_date')))
         conn.commit()
-    conn.close()
+    return_connection(conn)
     return jsonify({'status':'updated'}), 200
 
 
@@ -47,5 +47,5 @@ def delete_plan():
     with conn.cursor() as cur:
         cur.execute('DELETE FROM daily_production_plan WHERE store_id=%s AND product_id=%s AND production_date=%s;', (store_id, product_id, production_date))
         conn.commit()
-    conn.close()
+    return_connection(conn)
     return jsonify({'status':'deleted'}), 200
