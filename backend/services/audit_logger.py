@@ -51,6 +51,7 @@ class AuditLogger:
             details: Additional JSON details
             status: 'success', 'failure', 'warning'
         """
+        conn = None
         try:
             conn = get_connection()
             with conn.cursor() as cur:
@@ -73,9 +74,11 @@ class AuditLogger:
                     status
                 ))
                 conn.commit()
-            return_connection(conn)
         except Exception as e:
             print(f"Error logging audit action: {e}")
+        finally:
+            if conn:
+                return_connection(conn)
     
     @staticmethod
     def log_login(user_id: int, success: bool = True):
@@ -144,6 +147,7 @@ class AuditLogger:
     @staticmethod
     def get_user_activity(user_id: int, limit: int = 50):
         """Get recent activity for a user"""
+        conn = None
         try:
             conn = get_connection()
             with conn.cursor() as cur:
@@ -156,15 +160,18 @@ class AuditLogger:
                     LIMIT %s
                 ''', (user_id, limit))
                 rows = cur.fetchall()
-            return_connection(conn)
             return rows
         except Exception as e:
             print(f"Error fetching user activity: {e}")
             return []
+        finally:
+            if conn:
+                return_connection(conn)
     
     @staticmethod
     def get_recent_activity(limit: int = 100, action_type: str = None, user_id: int = None):
         """Get recent activity across system"""
+        conn = None
         try:
             conn = get_connection()
             with conn.cursor() as cur:
@@ -184,11 +191,13 @@ class AuditLogger:
                 
                 cur.execute(query, params)
                 rows = cur.fetchall()
-            return_connection(conn)
             return rows
         except Exception as e:
             print(f"Error fetching recent activity: {e}")
             return []
+        finally:
+            if conn:
+                return_connection(conn)
 
 
 # Global audit logger instance

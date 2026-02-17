@@ -7,33 +7,39 @@ bp = Blueprint('daily_production_plan', __name__, url_prefix='/api/v1/daily_prod
 @bp.route('/', methods=['GET'])
 def list_plans():
     conn = get_connection()
-    with conn.cursor() as cur:
-        cur.execute('SELECT * FROM daily_production_plan;')
-        rows = cur.fetchall()
-    return_connection(conn)
-    return jsonify(rows), 200
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT * FROM daily_production_plan;')
+            rows = cur.fetchall()
+        return jsonify(rows), 200
+    finally:
+        return_connection(conn)
 
 
 @bp.route('/', methods=['POST'])
 def create_plan():
     data = request.get_json() or {}
     conn = get_connection()
-    with conn.cursor() as cur:
-        cur.execute('INSERT INTO daily_production_plan (store_id, product_id, production_date, planned_quantity, source, created_at) VALUES (%s,%s,%s,%s,%s,now());', (data.get('store_id'), data.get('product_id'), data.get('production_date'), data.get('planned_quantity'), data.get('source')))
-        conn.commit()
-    return_connection(conn)
-    return jsonify({'status':'created'}), 201
+    try:
+        with conn.cursor() as cur:
+            cur.execute('INSERT INTO daily_production_plan (store_id, product_id, production_date, planned_quantity, source, created_at) VALUES (%s,%s,%s,%s,%s,now());', (data.get('store_id'), data.get('product_id'), data.get('production_date'), data.get('planned_quantity'), data.get('source')))
+            conn.commit()
+        return jsonify({'status':'created'}), 201
+    finally:
+        return_connection(conn)
 
 
 @bp.route('/', methods=['PUT'])
 def update_plan():
     data = request.get_json() or {}
     conn = get_connection()
-    with conn.cursor() as cur:
-        cur.execute('UPDATE daily_production_plan SET planned_quantity=%s, source=%s WHERE store_id=%s AND product_id=%s AND production_date=%s;', (data.get('planned_quantity'), data.get('source'), data.get('store_id'), data.get('product_id'), data.get('production_date')))
-        conn.commit()
-    return_connection(conn)
-    return jsonify({'status':'updated'}), 200
+    try:
+        with conn.cursor() as cur:
+            cur.execute('UPDATE daily_production_plan SET planned_quantity=%s, source=%s WHERE store_id=%s AND product_id=%s AND production_date=%s;', (data.get('planned_quantity'), data.get('source'), data.get('store_id'), data.get('product_id'), data.get('production_date')))
+            conn.commit()
+        return jsonify({'status':'updated'}), 200
+    finally:
+        return_connection(conn)
 
 
 @bp.route('/', methods=['DELETE'])
@@ -44,8 +50,10 @@ def delete_plan():
     if not (store_id and product_id and production_date):
         return jsonify({'status':'error','message':'store_id, product_id and production_date are required'}), 400
     conn = get_connection()
-    with conn.cursor() as cur:
-        cur.execute('DELETE FROM daily_production_plan WHERE store_id=%s AND product_id=%s AND production_date=%s;', (store_id, product_id, production_date))
-        conn.commit()
-    return_connection(conn)
-    return jsonify({'status':'deleted'}), 200
+    try:
+        with conn.cursor() as cur:
+            cur.execute('DELETE FROM daily_production_plan WHERE store_id=%s AND product_id=%s AND production_date=%s;', (store_id, product_id, production_date))
+            conn.commit()
+        return jsonify({'status':'deleted'}), 200
+    finally:
+        return_connection(conn)
