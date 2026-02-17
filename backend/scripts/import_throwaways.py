@@ -19,7 +19,7 @@ print("DEBUG USING:", os.getenv("DATABASE_URL"))
 print("DEBUG ENV PATH:", ENV_PATH)
 print("ENV FILE EXISTS:", os.path.exists(ENV_PATH))
 
-from models.db import get_connection
+from models.db import get_connection, return_connection
 
 
 # ---------------------------------------------------------
@@ -113,7 +113,7 @@ def main():
 
     if len(PRODUCT_MAP) == 0:
         print("[ERROR] No products loaded.")
-        conn.close()
+        return_connection(conn)
         return
 
     SKIP_ROWS = {
@@ -196,7 +196,7 @@ def main():
 
     conn.commit()
     cur.close()
-    conn.close()
+    return_connection(conn)
 
     print(f"\n[DONE] Import complete: {imported_count} products, {imported_count * 7} daily entries processed.")
 

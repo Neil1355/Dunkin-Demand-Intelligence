@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.db import get_connection
+from models.db import get_connection, return_connection
 
 daily_bp = Blueprint("daily", __name__)
 
@@ -49,4 +49,4 @@ def upload_daily():
 
     finally:
         cur.close()
-        conn.close()
+        return_connection(conn)

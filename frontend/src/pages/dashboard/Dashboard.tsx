@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 
 /// <reference types="vite/client" />
-import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download } from 'lucide-react';
+import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode } from 'lucide-react';
 // @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
 import { apiClient } from '../../api/client';
+import { ManagerQRCode } from '../../components/ManagerQRCode';
 
 interface DashboardProps {
   onLogout: () => void;
   username: string;
+  storeId: number;
   donutTypes: string[];
   munchkinTypes: string[];
   onUpdateDonutTypes: (types: string[]) => void;
   onUpdateMunchkinTypes: (types: string[]) => void;
 }
 
-export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
+export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingItem, setEditingItem] = useState<{ type: 'donut' | 'munchkin'; index: number; value: string } | null>(null);
@@ -124,7 +126,8 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'data-entry', icon: Pencil, label: 'Enter Daily Data' },
     { id: 'predictions', icon: TrendingUp, label: 'Predictions' },
-    { id: 'history', icon: History, label: 'History' }
+    { id: 'history', icon: History, label: 'History' },
+    { id: 'qr-code', icon: QrCode, label: 'QR Code' }
   ];
 
   const handleAddItem = async (type: 'donut' | 'munchkin') => {
@@ -804,6 +807,16 @@ export function Dashboard({ onLogout, username, donutTypes, munchkinTypes, onUpd
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'qr-code' && (
+            <div className="bg-white rounded-3xl p-8 shadow-lg">
+              <h3 className="mb-6" style={{ color: '#FF671F' }}>QR Code Management</h3>
+              <p className="mb-6" style={{ color: '#8B7355' }}>
+                Generate and manage QR codes for waste submission. Staff can scan these codes to quickly log throwaway/waste data.
+              </p>
+              <ManagerQRCode storeId={storeId} />
             </div>
           )}
         </div>

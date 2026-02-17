@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Mail, Lock, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, X, Building, Phone, User } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface LoginSignupProps {
@@ -7,22 +7,68 @@ interface LoginSignupProps {
   onLogin: (username: string) => void;
   onToggleMode: () => void;
   onClose: () => void;
+  onForgotPassword?: () => void;
 }
 
-export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignupProps) {
+export function LoginSignup({ mode, onLogin, onToggleMode, onClose, onForgotPassword }: LoginSignupProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    username: ''
+    username: '',
+    store_id: '',
+    phone: '',
+    role: 'employee'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Clear form and errors when mode changes
+  useEffect(() => {
+    setFormData({
+      email: '',
+      password: '',
+      username: '',
+      store_id: '',
+      phone: '',
+      role: 'employee'
+    });
+    setError('');
+    setSuccessMessage('');
+  }, [mode]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
+
+    // Frontend validation
+    if (mode === 'signup') {
+      if (!formData.username.trim()) {
+        setError('Name is required');
+        return;
+      }
+      if (!formData.store_id.trim()) {
+        setError('Store number is required');
+        return;
+      }
+    }
+    
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      return;
+    }
+    
+    if (!formData.password.trim()) {
+      setError('Password is required');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -38,7 +84,10 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
         const response = await apiClient.signup(
           formData.username || formData.email.split('@')[0],
           formData.email,
-          formData.password
+          formData.password,
+          parseInt(formData.store_id),
+          formData.phone || undefined,
+          formData.role
         );
         if (response.status === 'success' && response.user) {
           setSuccessMessage('Account created successfully!');
@@ -115,27 +164,103 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
               </div>
             )}
             {mode === 'signup' && (
-              <div>
-                <label htmlFor="username" className="block mb-2" style={{ color: '#8B7355' }}>
-                  Your Name
-                </label>
-                <div className="relative">
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
-                    placeholder="John Doe"
-                    style={{ 
-                      borderColor: '#E0D5C7',
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#FF671F'}
-                    onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
-                  />
+              <>
+                <div>
+                  <label htmlFor="username" className="block mb-2" style={{ color: '#8B7355' }}>
+                    Your Name <span style={{ color: '#FF671F' }}>*</span>
+                  </label>
+                  <div className="relative">
+                    <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
+                      placeholder="John Doe"
+                      required
+                      style={{ 
+                        borderColor: '#E0D5C7',
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#FF671F'}
+                      onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
+                    />
+                  </div>
                 </div>
-              </div>
+
+                <div>
+                  <label htmlFor="store_id" className="block mb-2" style={{ color: '#8B7355' }}>
+                    Store Number <span style={{ color: '#FF671F' }}>*</span>
+                  </label>
+                  <div className="relative">
+                    <Building size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
+                    <input
+                      id="store_id"
+                      name="store_id"
+                      type="number"
+                      value={formData.store_id}
+                      onChange={(e) => setFormData({ ...formData, store_id: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
+                      placeholder="12345"
+                      required
+                      style={{ 
+                        borderColor: '#E0D5C7',
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#FF671F'}
+                      onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="block mb-2" style={{ color: '#8B7355' }}>
+                    Phone Number <span style={{ color: '#999', fontSize: '0.85rem' }}>(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Phone size={20} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#8B7355' }} />
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm"
+                      placeholder="(555) 123-4567"
+                      style={{ 
+                        borderColor: '#E0D5C7',
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#FF671F'}
+                      onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="role" className="block mb-2" style={{ color: '#8B7355' }}>
+                    Your Role
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="role"
+                      name="role"
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      className="w-full px-4 py-3 rounded-full border-2 border-gray-200 focus:outline-none transition-all shadow-sm appearance-none"
+                      style={{ 
+                        borderColor: '#E0D5C7',
+                        backgroundColor: 'white'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#FF671F'}
+                      onBlur={(e) => e.target.style.borderColor = '#E0D5C7'}
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="assistant_manager">Assistant Manager</option>
+                      <option value="manager">Manager</option>
+                    </select>
+                  </div>
+                </div>
+              </>
             )}
 
             <div>
@@ -183,6 +308,19 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose }: LoginSignu
                 />
               </div>
             </div>
+
+            {mode === 'login' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="text-sm transition-colors hover:underline"
+                  style={{ color: '#FF671F' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               {mode === 'login' ? (

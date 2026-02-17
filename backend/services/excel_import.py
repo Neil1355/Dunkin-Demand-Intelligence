@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import pandas as pd
-from models.db import get_connection
+from models.db import get_connection, return_connection
 
 excel_bp = Blueprint("excel", __name__, url_prefix="/excel")
 
@@ -61,7 +61,7 @@ def upload_excel():
 
     finally:
         cur.close()
-        conn.close()
+        return_connection(conn)
 
     return jsonify({
         "message": "Excel uploaded successfully",
