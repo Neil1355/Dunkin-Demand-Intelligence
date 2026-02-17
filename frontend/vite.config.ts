@@ -52,6 +52,25 @@
     build: {
       target: 'esnext',
       outDir: 'dist',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'ui-vendor': [
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-select',
+              '@radix-ui/react-popover',
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-tabs',
+            ],
+            'chart-vendor': ['recharts'],
+            'form-vendor': ['react-hook-form'],
+            'utils': ['date-fns', 'clsx', 'tailwind-merge'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 600,
     },
     server: {
       port: 3000,
