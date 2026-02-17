@@ -55,18 +55,18 @@
       rollupOptions: {
         output: {
           manualChunks: {
-            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'react-vendor': ['react', 'react-dom'],
             'ui-vendor': [
               '@radix-ui/react-dialog',
               '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-select',
               '@radix-ui/react-popover',
               '@radix-ui/react-tooltip',
-              '@radix-ui/react-tabs',
+              '@radix-ui/react-avatar',
+              '@radix-ui/react-checkbox',
+              '@radix-ui/react-label',
             ],
             'chart-vendor': ['recharts'],
-            'form-vendor': ['react-hook-form'],
-            'utils': ['date-fns', 'clsx', 'tailwind-merge'],
+            'utils': ['clsx', 'tailwind-merge', 'lucide-react'],
           },
         },
       },
