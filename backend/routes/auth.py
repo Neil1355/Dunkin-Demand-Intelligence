@@ -91,7 +91,7 @@ def signup():
         access_token,
         httponly=True,
         secure=True,  # Only sent over HTTPS
-        samesite='Strict',
+        samesite='None',  # Allow cross-origin for Vercel frontend
         max_age=30*60  # 30 minutes
     )
     response.set_cookie(
@@ -99,7 +99,7 @@ def signup():
         refresh_token,
         httponly=True,
         secure=True,
-        samesite='Strict',
+        samesite='None',  # Allow cross-origin for Vercel frontend
         max_age=7*24*60*60  # 7 days
     )
     
@@ -141,7 +141,7 @@ def login():
         access_token,
         httponly=True,
         secure=True,
-        samesite='Strict',
+        samesite='None',  # Allow cross-origin for Vercel frontend
         max_age=30*60  # 30 minutes
     )
     response.set_cookie(
@@ -149,7 +149,7 @@ def login():
         refresh_token,
         httponly=True,
         secure=True,
-        samesite='Strict',
+        samesite='None',  # Allow cross-origin for Vercel frontend
         max_age=7*24*60*60  # 7 days
     )
     
@@ -222,8 +222,8 @@ def logout():
     response = jsonify({"status": "success", "message": "Logged out successfully"})
     
     # Clear the cookies
-    response.delete_cookie("access_token", httponly=True, secure=True, samesite='Strict')
-    response.delete_cookie("refresh_token", httponly=True, secure=True, samesite='Strict')
+    response.delete_cookie("access_token", httponly=True, secure=True, samesite='None')
+    response.delete_cookie("refresh_token", httponly=True, secure=True, samesite='None')
     
     return response, 200
 
@@ -251,7 +251,7 @@ def refresh_access_token():
         new_access_token,
         httponly=True,
         secure=True,
-        samesite='Strict',
+        samesite='None',  # Allow cross-origin for Vercel frontend
         max_age=30*60
     )
     

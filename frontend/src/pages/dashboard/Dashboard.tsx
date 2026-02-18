@@ -43,7 +43,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     try {
       setDashboardLoading(true);
       const today = new Date().toISOString().split('T')[0];
-      const result = await apiFetch(`/dashboard/daily?store_id=12345&date=${today}`);
+      const result = await apiFetch(`/dashboard/daily?store_id=${storeId}&date=${today}`);
       
       // Calculate totals from result
       const production = result.reduce((sum: number, item: any) => sum + (item.final_quantity || 0), 0);
@@ -63,7 +63,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     const fetchHistory = async () => {
       try {
         setHistoryLoading(true);
-        const result = await apiFetch("/forecast_history?store_id=12345&days=7");
+        const result = await apiFetch(`/forecast_history?store_id=${storeId}&days=7`);
         setHistoryData(result || []);
       } catch (err) {
         console.error("Failed to load history:", err);
@@ -76,7 +76,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     const fetchWeeklyData = async () => {
       try {
         setWeeklyDataLoading(true);
-        const result = await apiFetch("/dashboard/accuracy?store_id=12345&days=7");
+        const result = await apiFetch(`/dashboard/accuracy?store_id=${storeId}&days=7`);
         setWeeklyData(result || []);
       } catch (err) {
         console.error("Failed to load weekly data:", err);
@@ -202,7 +202,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
       // Call backend export endpoint
       const baseUrl = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence-landing-page.onrender.com/api/v1';
-      const url = `${baseUrl}/throwaway/export?store_id=12345&week_start=${weekStart}`;
+      const url = `${baseUrl}/throwaway/export?store_id=${storeId}&week_start=${weekStart}`;
       
       // Fetch first to check for errors
       const response = await fetch(url, { credentials: 'include' });
@@ -246,7 +246,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       const result = await apiFetch("/forecast/raw", {
         method: "POST",
         body: JSON.stringify({
-          store_id: 12345,
+          store_id: storeId,
           target_date: targetDate
         })
       });
@@ -273,7 +273,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         return d.toISOString().split("T")[0];
       })();
       
-      const result = await apiFetch(`/forecast?store_id=12345&target_date=${tomorrow}`);
+      const result = await apiFetch(`/forecast?store_id=${storeId}&target_date=${tomorrow}`);
       
       if (result.products) {
         setForecastPredictions(result.products);
@@ -294,7 +294,6 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     setSaveLoading(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-      const storeId = 12345;
       
       // Fetch all products to get IDs
       const productsList = await apiFetch("/products/list");
@@ -409,7 +408,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               {sidebarOpen ? <X size={24} style={{ color: '#FF671F' }} /> : <Menu size={24} style={{ color: '#FF671F' }} />}
             </button>
             <div>
-              <div style={{ color: '#FF671F' }}>Store #12345</div>
+              <div style={{ color: '#FF671F' }}>Store #{storeId}</div>
               <div className="text-sm" style={{ color: '#8B7355' }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
             </div>
           </div>
