@@ -60,25 +60,35 @@ def require_auth(f):
     def decorated_function(*args, **kwargs):
         token = None
         
+        # Debug logging
+        print(f"[AUTH DEBUG] Cookies received: {list(request.cookies.keys())}")
+        print(f"[AUTH DEBUG] Authorization header: {request.headers.get('Authorization', 'None')}")
+        
         # Check for token in Authorization header (Bearer scheme)
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
             try:
                 token = auth_header.split(" ")[1]
+                print(f"[AUTH DEBUG] Token from header: {token[:20]}...")
             except IndexError:
                 return jsonify({"status": "error", "message": "Invalid authorization header"}), 401
         
         # Fallback: check for token in secure cookie (httpOnly)
         if not token and 'access_token' in request.cookies:
             token = request.cookies.get('access_token')
+            print(f"[AUTH DEBUG] Token from cookie: {token[:20] if token else 'None'}...")
         
         if not token:
+            print("[AUTH DEBUG] No token found!")
             return jsonify({"status": "error", "message": "Authorization token missing"}), 401
         
         # Verify token
         payload = verify_token(token)
         if "error" in payload:
+            print(f"[AUTH DEBUG] Token verification failed: {payload['error']}")
             return jsonify({"status": "error", "message": payload["error"]}), 401
+        
+        print(f"[AUTH DEBUG] Token verified successfully for user_id: {payload.get('sub')}")
         
         # Store user info in Flask's g object (request context)
         g.user_id = payload.get("sub")

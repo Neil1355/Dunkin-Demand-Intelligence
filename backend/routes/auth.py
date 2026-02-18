@@ -5,6 +5,9 @@ from utils.jwt_handler import create_access_token, create_refresh_token
 import os
 from services.email_service import send_password_reset_email
 
+# Check if running in production
+IS_PRODUCTION = os.getenv('FLASK_ENV') == 'production' or os.getenv('RENDER') is not None
+
 # JSON schema for signup/login
 signup_schema = {
     "type": "object",
@@ -90,16 +93,16 @@ def signup():
         "access_token",
         access_token,
         httponly=True,
-        secure=True,  # Only sent over HTTPS
-        samesite='None',  # Allow cross-origin for Vercel frontend
+        secure=IS_PRODUCTION,  # Only require HTTPS in production
+        samesite='None' if IS_PRODUCTION else 'Lax',  # None for cross-origin in prod, Lax for localhost
         max_age=30*60  # 30 minutes
     )
     response.set_cookie(
         "refresh_token",
         refresh_token,
         httponly=True,
-        secure=True,
-        samesite='None',  # Allow cross-origin for Vercel frontend
+        secure=IS_PRODUCTION,
+        samesite='None' if IS_PRODUCTION else 'Lax',
         max_age=7*24*60*60  # 7 days
     )
     
@@ -140,16 +143,16 @@ def login():
         "access_token",
         access_token,
         httponly=True,
-        secure=True,
-        samesite='None',  # Allow cross-origin for Vercel frontend
+        secure=IS_PRODUCTION,
+        samesite='None' if IS_PRODUCTION else 'Lax',
         max_age=30*60  # 30 minutes
     )
     response.set_cookie(
         "refresh_token",
         refresh_token,
         httponly=True,
-        secure=True,
-        samesite='None',  # Allow cross-origin for Vercel frontend
+        secure=IS_PRODUCTION,
+        samesite='None' if IS_PRODUCTION else 'Lax',
         max_age=7*24*60*60  # 7 days
     )
     
@@ -222,8 +225,8 @@ def logout():
     response = jsonify({"status": "success", "message": "Logged out successfully"})
     
     # Clear the cookies
-    response.delete_cookie("access_token", httponly=True, secure=True, samesite='None')
-    response.delete_cookie("refresh_token", httponly=True, secure=True, samesite='None')
+    response.delete_cookie("access_token", httponly=True, secure=IS_PRODUCTION, samesite='None' if IS_PRODUCTION else 'Lax')
+    response.delete_cookie("refresh_token", httponly=True, secure=IS_PRODUCTION, samesite='None' if IS_PRODUCTION else 'Lax')
     
     return response, 200
 
@@ -250,8 +253,8 @@ def refresh_access_token():
         "access_token",
         new_access_token,
         httponly=True,
-        secure=True,
-        samesite='None',  # Allow cross-origin for Vercel frontend
+        secure=IS_PRODUCTION,
+        samesite='None' if IS_PRODUCTION else 'Lax',
         max_age=30*60
     )
     

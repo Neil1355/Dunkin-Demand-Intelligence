@@ -10,7 +10,7 @@ DO NOT:
 Read-only or controlled writes only.
 """
 from flask import Blueprint, request, jsonify
-from models.db import get_connection
+from models.db import get_connection, return_connection
 from services.forecast_learning import update_learning
 
 forecast_learning_bp = Blueprint("forecast_learning", __name__)
@@ -18,24 +18,26 @@ forecast_learning_bp = Blueprint("forecast_learning", __name__)
 @forecast_learning_bp.route("/summary", methods=["GET"])
 def get_learning_summary():
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    cur.execute("SELECT last_updated, changes FROM forecast_learning ORDER BY last_updated DESC LIMIT 1")
-    row = cur.fetchone()
+        cur.execute("SELECT last_updated, changes FROM forecast_learning ORDER BY last_updated DESC LIMIT 1")
+        row = cur.fetchone()
 
-    cur.close()
-    conn.close()
+        cur.close()
 
-    if row:
-        return jsonify({
-            "last_updated": str(row[0]),
-            "changes": row[1]
-        })
-    else:
-        return jsonify({
-            "last_updated": None,
-            "changes": "No learning data available"
-        })
+        if row:
+            return jsonify({
+                "last_updated": str(row[0]),
+                "changes": row[1]
+            })
+        else:
+            return jsonify({
+                "last_updated": None,
+                "changes": "No learning data available"
+            })
+    finally:
+        return_connection(conn)
 
 @forecast_learning_bp.post("/update")
 def update_learning_route():
@@ -46,12 +48,14 @@ def update_learning_route():
         return jsonify({"error": "store_id required"}), 400
 
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    update_learning(cur, store_id)
+        update_learning(cur, store_id)
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+        cur.close()
 
-    return jsonify({"message": "Learning updated"})
+        return jsonify({"message": "Learning updated"})
+    finally:
+        return_connection(conn)

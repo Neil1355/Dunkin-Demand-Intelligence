@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.db import get_connection
+from models.db import get_connection, return_connection
 from datetime import date
 from services.forecast_accuracy import compute_forecast_accuracy
 
@@ -22,31 +22,33 @@ def submit_waste():
         return jsonify({"error": "Missing required fields"}), 400
 
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    for item in entries:
-        cur.execute("""
-            INSERT INTO waste_submissions
-            (store_id, product_id, waste_date, waste_quantity, submitted_by)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (store_id, product_id, waste_date)
-            DO UPDATE SET
-                waste_quantity = EXCLUDED.waste_quantity,
-                submitted_by = EXCLUDED.submitted_by,
-                status = 'pending';
-        """, (
-            store_id,
-            item["product_id"],
-            waste_date,
-            item["waste_quantity"],
-            submitted_by
-        ))
+        for item in entries:
+            cur.execute("""
+                INSERT INTO waste_submissions
+                (store_id, product_id, waste_date, waste_quantity, submitted_by)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (store_id, product_id, waste_date)
+                DO UPDATE SET
+                    waste_quantity = EXCLUDED.waste_quantity,
+                    submitted_by = EXCLUDED.submitted_by,
+                    status = 'pending';
+            """, (
+                store_id,
+                item["product_id"],
+                waste_date,
+                item["waste_quantity"],
+                submitted_by
+            ))
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+        cur.close()
 
-    return jsonify({"message": "Waste submitted for approval"})
+        return jsonify({"message": "Waste submitted for approval"})
+    finally:
+        return_connection(conn)
 
 # ---------------------------------------------------------
 # 2. Manager views pending waste
@@ -57,28 +59,30 @@ def pending_waste():
     waste_date = request.args.get("waste_date")
 
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    cur.execute("""
-        SELECT
-            ws.submission_id,
-            ws.product_id,
-            p.product_name,
-            ws.waste_quantity,
-            ws.submitted_by
-        FROM waste_submissions ws
-        JOIN products p ON p.product_id = ws.product_id
-        WHERE ws.store_id = %s
-          AND ws.waste_date = %s
-          AND ws.status = 'pending'
-        ORDER BY p.product_name;
-    """, (store_id, waste_date))
+        cur.execute("""
+            SELECT
+                ws.submission_id,
+                ws.product_id,
+                p.product_name,
+                ws.waste_quantity,
+                ws.submitted_by
+            FROM waste_submissions ws
+            JOIN products p ON p.product_id = ws.product_id
+            WHERE ws.store_id = %s
+              AND ws.waste_date = %s
+              AND ws.status = 'pending'
+            ORDER BY p.product_name;
+        """, (store_id, waste_date))
 
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+        rows = cur.fetchall()
+        cur.close()
 
-    return jsonify(rows)
+        return jsonify(rows)
+    finally:
+        return_connection(conn)
 
 
 # ---------------------------------------------------------
@@ -97,40 +101,42 @@ def approve_waste():
         return jsonify({"error": "Missing required fields"}), 400
 
     conn = get_connection()
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    for sid in submission_ids:
-        cur.execute("""
-            UPDATE waste_submissions
-            SET status = 'approved',
-                approved_by = %s,
-                approved_at = now()
-            WHERE submission_id = %s
-            RETURNING product_id, waste_quantity;
-        """, (approved_by, sid))
-
-        row = cur.fetchone()
-        if row:
-            product_id, waste_qty = row
-
+        for sid in submission_ids:
             cur.execute("""
-                INSERT INTO daily_throwaway
-                (store_id, product_id, date, waste)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (store_id, product_id, date)
-                DO UPDATE SET waste = EXCLUDED.waste;
-            """, (
-                store_id,
-                product_id,
-                waste_date,
-                waste_qty
-            ))
-    compute_forecast_accuracy(cur, store_id, waste_date)
+                UPDATE waste_submissions
+                SET status = 'approved',
+                    approved_by = %s,
+                    approved_at = now()
+                WHERE submission_id = %s
+                RETURNING product_id, waste_quantity;
+            """, (approved_by, sid))
+
+            row = cur.fetchone()
+            if row:
+                product_id, waste_qty = row
+
+                cur.execute("""
+                    INSERT INTO daily_throwaway
+                    (store_id, product_id, date, waste)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (store_id, product_id, date)
+                    DO UPDATE SET waste = EXCLUDED.waste;
+                """, (
+                    store_id,
+                    product_id,
+                    waste_date,
+                    waste_qty
+                ))
+        compute_forecast_accuracy(cur, store_id, waste_date)
 
 
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+        cur.close()
 
-    return jsonify({"message": "Waste approved and recorded"})
+        return jsonify({"message": "Waste approved and recorded"})
+    finally:
+        return_connection(conn)

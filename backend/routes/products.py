@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from models.product_model import get_all_products
-from models.db import get_connection
+from models.db import get_connection, return_connection
 
 products_bp = Blueprint("products", __name__)
 
@@ -39,42 +39,43 @@ def create_product():
     
     try:
         conn = get_connection()
-        cur = conn.cursor()
-        
-        # Check if product already exists
-        cur.execute("""
-            SELECT product_id FROM products 
-            WHERE LOWER(product_name) = LOWER(%s)
-        """, (product_name,))
-        
-        existing = cur.fetchone()
-        if existing:
+        try:
+            cur = conn.cursor()
+            
+            # Check if product already exists
+            cur.execute("""
+                SELECT product_id FROM products 
+                WHERE LOWER(product_name) = LOWER(%s)
+            """, (product_name,))
+            
+            existing = cur.fetchone()
+            if existing:
+                cur.close()
+                return jsonify({"error": "Product already exists"}), 409
+            
+            # Create new product
+            cur.execute("""
+                INSERT INTO products (product_name, product_type, is_active)
+                VALUES (%s, %s, TRUE)
+                RETURNING product_id, product_name, product_type, is_active
+            """, (product_name, product_type))
+            
+            result = cur.fetchone()
+            conn.commit()
             cur.close()
-            conn.close()
-            return jsonify({"error": "Product already exists"}), 409
-        
-        # Create new product
-        cur.execute("""
-            INSERT INTO products (product_name, product_type, is_active)
-            VALUES (%s, %s, TRUE)
-            RETURNING product_id, product_name, product_type, is_active
-        """, (product_name, product_type))
-        
-        result = cur.fetchone()
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({
-            "status": "success",
-            "product": {
-                "product_id": result[0],
-                "product_name": result[1],
-                "product_type": result[2],
-                "is_active": result[3]
-            }
-        }), 201
-        
+            
+            return jsonify({
+                "status": "success",
+                "product": {
+                    "product_id": result[0],
+                    "product_name": result[1],
+                    "product_type": result[2],
+                    "is_active": result[3]
+                }
+            }), 201
+        finally:
+            return_connection(conn)
+            
     except Exception as e:
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
