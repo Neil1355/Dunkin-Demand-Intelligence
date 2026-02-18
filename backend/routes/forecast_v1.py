@@ -106,7 +106,3 @@ def get_forecast_history():
         return jsonify(history)
     finally:
         return_connection(conn)
-            "avg_error": row[3]
-        })
-
-    return jsonify(history)
