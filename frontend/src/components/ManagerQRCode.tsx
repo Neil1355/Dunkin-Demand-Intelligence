@@ -96,17 +96,32 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
         ? `${API_BASE}/qr/download/${storeId}` 
         : `${API_BASE}/qr/download/${storeId}/simple`;
 
+      console.log('Downloading from:', endpoint);
+      
       const response = await fetch(endpoint, {
         method: 'GET',
         credentials: 'include', // Send cookies for authentication
       });
 
+      console.log('Download response status:', response.status);
+      console.log('Download response headers:', response.headers.get('content-type'));
+
       if (!response.ok) {
-        throw new Error('Failed to download QR code');
+        // Try to get error message from response
+        const errorText = await response.text();
+        console.error('Download error response:', errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || errorJson.message || 'Failed to download QR code');
+        } catch {
+          throw new Error(`Failed to download QR code: ${response.status}`);
+        }
       }
 
       // Create blob and download
       const blob = await response.blob();
+      console.log('Blob created, size:', blob.size, 'type:', blob.type);
+      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -119,6 +134,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
       setSuccessMessage('QR code downloaded successfully');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Download failed';
+      console.error('Download error:', err);
       setError(errorMsg);
     } finally {
       setDownloading(false);

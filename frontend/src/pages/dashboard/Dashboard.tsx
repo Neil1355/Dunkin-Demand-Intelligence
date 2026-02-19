@@ -29,6 +29,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [forecastPredictions, setForecastPredictions] = useState<any[]>([]);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [importedData, setImportedData] = useState<any[]>([]);
+  const [importedDataLoading, setImportedDataLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>({ production: null, waste_pct: null, forecast: null });
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
@@ -74,6 +76,19 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       }
     };
     
+    const fetchImportedData = async () => {
+      try {
+        setImportedDataLoading(true);
+        const result = await apiFetch(`/throwaway/recent?store_id=${storeId}&days=30`);
+        setImportedData(result.weeks || []);
+      } catch (err) {
+        console.error("Failed to load imported data:", err);
+        setImportedData([]);
+      } finally {
+        setImportedDataLoading(false);
+      }
+    };
+    
     const fetchWeeklyData = async () => {
       try {
         setWeeklyDataLoading(true);
@@ -91,6 +106,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchDashboardData();
     fetchWeeklyData();
     fetchForecastPredictions();
+    fetchImportedData();
   }, []);
 
   // Use weekly data for charts if available, otherwise use placeholder
@@ -128,6 +144,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     { id: 'data-entry', icon: Pencil, label: 'Enter Daily Data' },
     { id: 'predictions', icon: TrendingUp, label: 'Predictions' },
     { id: 'history', icon: History, label: 'History' },
+    { id: 'imported', icon: Download, label: 'Imported Data' },
     { id: 'qr-code', icon: QrCode, label: 'QR Code' }
   ];
 
@@ -830,6 +847,64 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                       <div className="flex gap-6">
                         <span style={{ color: '#FF671F' }}>Production: {entry.production || '—'}</span>
                         <span style={{ color: '#DA1884' }}>Waste: {entry.waste_pct ? entry.waste_pct + '%' : '—'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'imported' && (
+            <div className="bg-white rounded-3xl p-8 shadow-lg">
+              <h3 className="mb-6" style={{ color: '#FF671F' }}>Imported Throwaway Data</h3>
+              <p className="mb-6" style={{ color: '#8B7355' }}>
+                View data that has been imported from Excel files. This confirms your uploads were successful.
+              </p>
+              
+              {importedDataLoading ? (
+                <div style={{ color: '#8B7355' }}>Loading imported data...</div>
+              ) : importedData.length === 0 ? (
+                <div style={{ color: '#8B7355' }}>
+                  <p>No imported data found in the last 30 days.</p>
+                  <p className="text-sm mt-2">Use the "Enter Daily Data" tab to upload Excel files.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {importedData.map((week: any, idx: number) => (
+                    <div key={idx} className="border rounded-lg p-4" style={{ borderColor: '#FFD7B5' }}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <p className="font-semibold" style={{ color: '#FF671F' }}>
+                            Week of {new Date(week.week_start).toLocaleDateString()} - {new Date(week.week_end).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm" style={{ color: '#8B7355' }}>
+                            {week.product_count} products • {week.total_records} records
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm" style={{ color: '#8B7355' }}>
+                            Produced: <span className="font-semibold">{week.total_produced}</span>
+                          </p>
+                          <p className="text-sm" style={{ color: '#8B7355' }}>
+                            Waste: <span className="font-semibold">{week.total_waste}</span>
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="border-t" style={{ borderColor: '#FFD7B5' }}>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                          {week.products.map((product: any, pidx: number) => (
+                            <div key={pidx} className="p-2 bg-gray-50 rounded">
+                              <p className="font-medium" style={{ color: '#2D1810' }}>
+                                {product.product_name}
+                              </p>
+                              <p style={{ color: '#8B7355' }} className="text-xs">
+                                {product.days_recorded} days: {product.produced || 0} produced, {product.waste || 0} waste
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ))}

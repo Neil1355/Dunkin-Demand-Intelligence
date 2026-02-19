@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import pandas as pd
-from datetime import timedelta
+from datetime import timedelta, datetime
 from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
 
@@ -156,4 +156,88 @@ def upload_throwaways():
 
     except Exception as e:
         print(f"Error importing throwaways: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@throwaway_import_bp.get("/recent")
+@require_auth
+def get_recent_imports():
+    """
+    Get recently imported throwaway data grouped by week
+    Allows user to verify import succeeded
+    """
+    try:
+        store_id = request.args.get("store_id", type=int)
+        days_back = request.args.get("days", type=int, default=30)
+        
+        if not store_id:
+            return jsonify({"error": "store_id required"}), 400
+        
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Get imports from the last N days, grouped by week
+        cur.execute("""
+            SELECT
+                DATE_TRUNC('week', dt.date)::DATE AS week_start,
+                MAX(dt.date) AS week_end,
+                COUNT(DISTINCT dt.product_id) AS product_count,
+                COUNT(*) AS total_records,
+                MAX(dt.created_at) AS last_import,
+                SUM(dt.produced) AS total_produced,
+                SUM(dt.waste) AS total_waste
+            FROM daily_throwaway dt
+            WHERE dt.store_id = %s
+              AND dt.created_at >= NOW() - INTERVAL '%s days'
+            GROUP BY DATE_TRUNC('week', dt.date)
+            ORDER BY week_start DESC;
+        """, (store_id, days_back))
+        
+        weeks = cur.fetchall()
+        
+        # For each week, get the products
+        result = []
+        for week in weeks:
+            week_dict = {
+                "week_start": str(week['week_start']),
+                "week_end": str(week['week_end']),
+                "product_count": week['product_count'],
+                "total_records": week['total_records'],
+                "last_import": week['last_import'].isoformat() if week['last_import'] else None,
+                "total_produced": week['total_produced'] or 0,
+                "total_waste": week['total_waste'] or 0,
+                "products": []
+            }
+            
+            # Get product details for this week
+            cur.execute("""
+                SELECT
+                    p.product_id,
+                    p.product_name,
+                    COUNT(*) AS days_recorded,
+                    SUM(dt.produced) AS produced,
+                    SUM(dt.waste) AS waste,
+                    MIN(dt.date) AS first_date,
+                    MAX(dt.date) AS last_date
+                FROM daily_throwaway dt
+                JOIN products p ON p.product_id = dt.product_id
+                WHERE dt.store_id = %s
+                  AND DATE_TRUNC('week', dt.date) = %s
+                GROUP BY p.product_id, p.product_name
+                ORDER BY p.product_name;
+            """, (store_id, week['week_start']))
+            
+            products = cur.fetchall()
+            week_dict["products"] = [dict(p) for p in products]
+            result.append(week_dict)
+        
+        cur.close()
+        return_connection(conn)
+        
+        return jsonify({
+            "status": "success",
+            "weeks": result
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching recent imports: {e}")
         return jsonify({"error": str(e)}), 500
