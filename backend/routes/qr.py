@@ -37,7 +37,7 @@ def qr_code_exists(store_id):
     try:
         conn = get_connection()
         with conn.cursor() as cur:
-            cur.execute('SELECT id, qr_data, qr_url FROM qr_codes WHERE store_id=%s', (store_id,))
+            cur.execute('SELECT id, qr_data, qr_url, created_at, updated_at FROM qr_codes WHERE store_id=%s', (store_id,))
             result = cur.fetchone()
         return_connection(conn)
         return result
@@ -72,11 +72,22 @@ def create_qr_with_header(url, store_id):
     header = Image.new('RGB', (header_width, header_height), color='white')
     draw = ImageDraw.Draw(header)
     
-    # Try to use default font, fallback to basic if not available
+    # Try to use available fonts, fallback to basic if not available
     try:
-        font = ImageFont.truetype("arial.ttf", 20)
-        small_font = ImageFont.truetype("arial.ttf", 12)
+        # Try multiple font options in order of preference
+        font = None
+        small_font = None
+        for font_name in ["arial.ttf", "Arial.ttf", "DejaVuSans.ttf", "FreeSans.ttf"]:
+            try:
+                font = ImageFont.truetype(font_name, 20)
+                small_font = ImageFont.truetype(font_name, 12)
+                break
+            except:
+                continue
+        if not font:
+            raise Exception("No font found")
     except:
+        # Use default bitmap font as fallback
         font = ImageFont.load_default()
         small_font = ImageFont.load_default()
     

@@ -217,7 +217,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
               <p>
                 <span className="font-semibold">Active:</span> {qrStatus.exists ? 'Yes' : 'No'}
               </p>
-              {qrStatus.created_at && (
+              {qrStatus.created_at && qrStatus.created_at !== 'unknown' && (
                 <p>
                   <span className="font-semibold">Created:</span>{' '}
                   {new Date(qrStatus.created_at).toLocaleDateString()}
