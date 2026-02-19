@@ -7,6 +7,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { apiFetch } from '../../utils/api';
 import { apiClient } from '../../api/client';
 import { ManagerQRCode } from '../../components/ManagerQRCode';
+import ExcelUpload from '../../components/ExcelUpload';
 
 interface DashboardProps {
   onLogout: () => void;
@@ -512,8 +513,18 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
           {activeTab === 'data-entry' && (
             <div className="space-y-6">
+              {/* Excel Import Section */}
               <div className="bg-white rounded-3xl p-8 shadow-lg">
-                <h3 className="mb-6" style={{ color: '#FF671F' }}>Daily Donut & Munchkin Input</h3>
+                <h3 className="mb-4" style={{ color: '#FF671F' }}>Bulk Import from Excel</h3>
+                <p className="mb-6 text-sm" style={{ color: '#8B7355' }}>
+                  Upload an Excel file (.xlsx) with historical production and waste data.
+                </p>
+                <ExcelUpload />
+              </div>
+
+              {/* Manual Entry Section */}
+              <div className="bg-white rounded-3xl p-8 shadow-lg">
+                <h3 className="mb-6" style={{ color: '#FF671F' }}>Manual Daily Input</h3>
 
                 {/* Donuts Section */}
                 <div className="space-y-4 mb-8">
