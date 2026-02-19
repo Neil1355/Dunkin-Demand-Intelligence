@@ -62,6 +62,8 @@ def create_qr_with_header(url, store_id):
     qr.make(fit=True)
     
     qr_img = qr.make_image(fill_color="black", back_color="white")
+    # Convert to RGB mode to ensure compatibility when pasting
+    qr_img = qr_img.convert('RGB')
     
     # Create header image
     header_text = "Submit Waste for Today\nBy Scanning QR Code Below"
