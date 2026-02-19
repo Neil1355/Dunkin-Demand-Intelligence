@@ -3,7 +3,11 @@ import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence.onrender.com/api/v1';
 
-export default function ExcelUpload() {
+interface ExcelUploadProps {
+  storeId: number;
+}
+
+export default function ExcelUpload({ storeId }: ExcelUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +31,9 @@ export default function ExcelUpload() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("store_id", storeId.toString());
 
-      const res = await fetch(`${API_BASE}/excel/upload`, {
+      const res = await fetch(`${API_BASE}/throwaway/upload_throwaways`, {
         method: "POST",
         body: formData,
         credentials: 'include', // Send auth cookies
@@ -40,7 +45,7 @@ export default function ExcelUpload() {
         throw new Error(data.error || 'Upload failed');
       }
 
-      setSuccess(`Successfully imported ${data.inserted || 0} records!`);
+      setSuccess(`Successfully imported ${data.imported || 0} products for week of ${data.week_start}`);
       // Clear the file input
       e.target.value = '';
     } catch (err) {
@@ -60,7 +65,7 @@ export default function ExcelUpload() {
           style={{ backgroundColor: '#FF671F' }}
         >
           <Upload size={18} />
-          {uploading ? 'Uploading...' : 'Upload Excel File'}
+          {uploading ? 'Uploading...' : 'Upload Throwaway Sheet'}
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -90,11 +95,13 @@ export default function ExcelUpload() {
 
       {/* Instructions */}
       <div className="p-4 rounded-2xl text-sm" style={{ backgroundColor: '#FFF8F0', color: '#8B7355' }}>
-        <p className="font-semibold mb-2">Excel Format Requirements:</p>
+        <p className="font-semibold mb-2">Weekly Throwaway Sheet Format:</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Columns: <code>store_id</code>, <code>product_id</code>, <code>date</code></li>
-          <li>Optional: <code>produced</code>, <code>waste</code></li>
-          <li>Date format: YYYY-MM-DD</li>
+          <li>Row 2, Column B: Base date (Sunday)</li>
+          <li>Row 4+: Product names in Column A</li>
+          <li>Columns B-O: AM/PM data for 7 days (Sun-Sat)</li>
+          <li>AM = Produced, PM = Waste</li>
+          <li>New products are automatically added</li>
         </ul>
       </div>
     </div>

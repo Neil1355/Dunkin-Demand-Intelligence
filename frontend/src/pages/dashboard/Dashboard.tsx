@@ -517,9 +517,9 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               <div className="bg-white rounded-3xl p-8 shadow-lg">
                 <h3 className="mb-4" style={{ color: '#FF671F' }}>Bulk Import from Excel</h3>
                 <p className="mb-6 text-sm" style={{ color: '#8B7355' }}>
-                  Upload an Excel file (.xlsx) with historical production and waste data.
+                  Upload weekly throwaway sheets with AM/PM production and waste data.
                 </p>
-                <ExcelUpload />
+                <ExcelUpload storeId={storeId} />
               </div>
 
               {/* Manual Entry Section */}

@@ -65,6 +65,7 @@ from routes.forecast_learning import forecast_learning_bp
 from routes.qr import qr_bp
 from routes.dashboard import dashboard_bp
 from routes.system_health import system_health_bp
+from routes.throwaway_import import throwaway_import_bp
 from routes.calendar_events import bp as calendar_events_bp
 from routes.daily_production import bp as daily_production_bp
 from routes.daily_production_plan import bp as daily_production_plan_bp
@@ -86,6 +87,7 @@ app.register_blueprint(excel_bp, url_prefix="/api/v1/excel")
 app.register_blueprint(export_bp, url_prefix="/api/v1/export")
 app.register_blueprint(forecast_context_bp, url_prefix="/api/v1/forecast/context")
 app.register_blueprint(throwaway_export_bp, url_prefix="/api/v1/throwaway")
+app.register_blueprint(throwaway_import_bp, url_prefix="/api/v1/throwaway")
 app.register_blueprint(forecast_v1_bp, url_prefix="/api/v1")
 app.register_blueprint(forecast_accuracy_bp, url_prefix="/api/v1/forecast/accuracy")
 app.register_blueprint(forecast_learning_bp, url_prefix="/api/v1/forecast/learning")
