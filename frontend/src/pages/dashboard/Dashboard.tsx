@@ -359,38 +359,56 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   }
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="flex h-screen relative" style={{ backgroundColor: '#F5F0E8' }}>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 overflow-hidden flex-shrink-0`}
+        className={`
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          fixed lg:relative z-30
+          w-64 h-full
+          transition-transform duration-300
+          flex-shrink-0
+        `}
         style={{ backgroundColor: '#DA1884' }}
       >
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
-              <span className="text-xl">🍩</span>
+        <div className="p-4 sm:p-6 h-full flex flex-col">
+          <div className="flex items-center gap-2 mb-6 sm:mb-8">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center">
+              <span className="text-lg sm:text-xl">🍩</span>
             </div>
-            <span className="text-white">DDI</span>
+            <span className="text-white font-semibold">DDI</span>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-1.5 sm:space-y-2 flex-1 overflow-y-auto">
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${activeTab === item.id ? 'bg-white' : 'hover:bg-white/20'
+                onClick={() => {
+                  setActiveTab(item.id);
+                  // Close sidebar on mobile after selection
+                  if (window.innerWidth < 1024) setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl transition-all text-sm sm:text-base ${activeTab === item.id ? 'bg-white' : 'hover:bg-white/20'
                   }`}
                 style={{ color: activeTab === item.id ? '#DA1884' : 'white' }}
               >
-                <item.icon size={20} />
-                <span>{item.label}</span>
+                <item.icon size={18} className="sm:w-5 sm:h-5 flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
               </button>
             ))}
           </nav>
 
           <button
             onClick={onLogout}
-            className="w-full mt-8 px-4 py-3 rounded-2xl bg-white/20 text-white hover:bg-white/30 transition-all"
+            className="w-full mt-4 sm:mt-8 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/20 text-white hover:bg-white/30 transition-all text-sm sm:text-base"
           >
             Logout
           </button>
@@ -398,68 +416,68 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto w-full">
         {/* Top Bar */}
-        <div className="bg-white shadow-sm p-4 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-4">
+        <div className="bg-white shadow-sm p-3 sm:p-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-all"
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0"
             >
-              {sidebarOpen ? <X size={24} style={{ color: '#FF671F' }} /> : <Menu size={24} style={{ color: '#FF671F' }} />}
+              <Menu size={20} className="sm:w-6 sm:h-6" style={{ color: '#FF671F' }} />
             </button>
-            <div>
-              <div style={{ color: '#FF671F' }}>Store #{storeId}</div>
-              <div className="text-sm" style={{ color: '#8B7355' }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            <div className="min-w-0">
+              <div className="text-sm sm:text-base font-semibold truncate" style={{ color: '#FF671F' }}>Store #{storeId}</div>
+              <div className="text-xs sm:text-sm truncate" style={{ color: '#8B7355' }}>
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </div>
             </div>
           </div>
 
           <button
             onClick={handleExportData}
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-white transition-all hover:scale-105 text-xs sm:text-sm flex-shrink-0"
             style={{ backgroundColor: '#FF671F' }}
           >
-            <Download size={18} />
-            Export Data
+            <Download size={14} className="sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Export Data</span>
+            <span className="sm:hidden">Export</span>
           </button>
         </div>
 
-        {/* Dashboard Content */}
-        <div className="p-6">
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
+        {/* Dashboard Content */}4 sm:space-y-6">
               {/* Greeting */}
-              <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-3xl p-6 shadow-lg">
-                <h2 style={{ color: '#FF671F' }}>Hey {username}! 👋</h2>
-                <p style={{ color: '#8B7355' }}>Welcome back to your Dunkin' Demand Intelligence dashboard.</p>
+              <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
+                <h2 className="text-lg sm:text-xl mb-1 sm:mb-2" style={{ color: '#FF671F' }}>Hey {username}! 👋</h2>
+                <p className="text-sm sm:text-base" style={{ color: '#8B7355' }}>Welcome back to your dashboard.</p>
               </div>
 
               {/* Quick Stats */}
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Today's Production</div>
-                  <div className="text-3xl" style={{ color: '#FF671F' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
+                  <div className="text-xs sm:text-sm mb-1 sm:mb-2" style={{ color: '#8B7355' }}>Today's Production</div>
+                  <div className="text-2xl sm:text-3xl font-bold" style={{ color: '#FF671F' }}>
                     {dashboardLoading ? '—' : dashboardData.production !== null ? `${dashboardData.production} Units` : '—'}
                   </div>
                 </div>
-                <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Predicted Waste</div>
-                  <div className="text-3xl" style={{ color: '#DA1884' }}>
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
+                  <div className="text-xs sm:text-sm mb-1 sm:mb-2" style={{ color: '#8B7355' }}>Predicted Waste</div>
+                  <div className="text-2xl sm:text-3xl font-bold" style={{ color: '#DA1884' }}>
                     {dashboardLoading ? '—' : dashboardData.waste_pct !== null ? `${dashboardData.waste_pct}%` : '—'}
                   </div>
                 </div>
-                <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Tomorrow's Forecast</div>
-                  <div className="text-3xl" style={{ color: '#FF671F' }}>
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg sm:col-span-2 lg:col-span-1">
+                  <div className="text-xs sm:text-sm mb-1 sm:mb-2" style={{ color: '#8B7355' }}>Tomorrow's Forecast</div>
+                  <div className="text-2xl sm:text-3xl font-bold" style={{ color: '#FF671F' }}>
                     {dashboardData.forecast !== null ? `${dashboardData.forecast} Units` : '—'}
                   </div>
                 </div>
               </div>
 
               {/* Charts */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <h3 className="mb-4" style={{ color: '#FF671F' }}>Weekly Waste vs Sales</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
+                  <h3 className="mb-3 sm:mb-4 text-base sm:text-lg" style={{ color: '#FF671F' }}>Weekly Waste vs Sales</h3>
                   {weeklyDataLoading ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       Loading chart data...
@@ -483,8 +501,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                   )}
                 </div>
 
-                <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <h3 className="mb-4" style={{ color: '#FF671F' }}>Production Optimization</h3>
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
+                  <h3 className="mb-3 sm:mb-4 text-base sm:text-lg" style={{ color: '#FF671F' }}>Production Optimization</h3>
                   {weeklyDataLoading ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       Loading chart data...

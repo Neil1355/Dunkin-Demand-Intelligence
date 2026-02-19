@@ -112,33 +112,33 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose, onForgotPass
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#FFF7F2' }}>
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-6" style={{ backgroundColor: '#FFF7F2' }}>
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden relative border border-gray-100">
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden relative border border-gray-100">
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 left-4 z-10 p-2 rounded-full hover:bg-white/20 transition-all"
+            className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 p-1.5 sm:p-2 rounded-full hover:bg-white/20 transition-all"
             style={{ color: '#333' }}
           >
-            <X size={24} />
+            <X size={20} className="sm:w-6 sm:h-6" />
           </button>
 
           {/* Header */}
-          <div className="py-8 px-8 flex items-center gap-4" style={{ backgroundColor: '#FFF0F6' }}>
-            <div className="rounded-full bg-gradient-to-br from-[#FF671F] to-[#DA1884] w-12 h-12 flex items-center justify-center text-white shadow-md">
-              <span className="font-bold">DD</span>
+          <div className="py-4 px-4 sm:py-8 sm:px-8 flex items-center gap-3 sm:gap-4" style={{ backgroundColor: '#FFF0F6' }}>
+            <div className="rounded-full bg-gradient-to-br from-[#FF671F] to-[#DA1884] w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-white shadow-md flex-shrink-0">
+              <span className="font-bold text-sm sm:text-base">DD</span>
             </div>
-            <div>
-              <h2 className="text-gray-800 text-lg font-semibold">
-                {mode === 'login' ? 'Welcome Back' : 'Create Your Account'}
+            <div className="min-w-0">
+              <h2 className="text-gray-800 text-base sm:text-lg font-semibold truncate">
+                {mode === 'login' ? 'Welcome Back' : 'Create Account'}
               </h2>
-              <p className="text-sm text-gray-500">Dunkin Demand Intelligence — insights for your store</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Dunkin Demand Intelligence</p>
             </div>
           </div>
 
           {/* Form content */}
-          <form onSubmit={handleSubmit} className="p-8 space-y-5">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4 sm:space-y-5">
             {error && (
               <div className="p-4 rounded-lg text-white text-sm flex items-start justify-between" style={{ backgroundColor: '#FF6B6B' }}>
                 <span>{error}</span>
