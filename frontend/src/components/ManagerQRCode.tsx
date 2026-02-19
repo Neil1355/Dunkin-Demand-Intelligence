@@ -45,6 +45,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
       const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Send cookies for authentication
       });
 
       console.log('QR Response status:', response.status);
@@ -73,6 +74,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
       const response = await fetch(`${API_BASE}/qr/status/${storeId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Send cookies for authentication
       });
 
       if (!response.ok) throw new Error('Failed to check status');
@@ -96,6 +98,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
 
       const response = await fetch(endpoint, {
         method: 'GET',
+        credentials: 'include', // Send cookies for authentication
       });
 
       if (!response.ok) {
@@ -133,6 +136,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     try {
       const response = await fetch(`${API_BASE}/qr/regenerate/${storeId}`, {
         method: 'POST',
+        credentials: 'include', // Send cookies for authentication
         headers: { 'Content-Type': 'application/json' },
       });
 
