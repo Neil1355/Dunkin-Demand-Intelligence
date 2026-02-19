@@ -462,6 +462,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           </button>
         </div>
 
+        {activeTab === 'dashboard' && (
         <div className="space-y-4 sm:space-y-6">
               {/* Greeting */}
               <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
