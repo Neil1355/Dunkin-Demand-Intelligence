@@ -323,38 +323,6 @@ export function LoginSignup({ mode, onLogin, onToggleMode, onClose, onForgotPass
               </div>
             )}
 
-            {mode === 'login' && (
-              <div className="p-3 rounded-lg border border-yellow-300 bg-yellow-50">
-                <p className="text-xs text-yellow-800 mb-2">
-                  <strong>⚠️ Database Unavailable:</strong> Using test login to demonstrate features.
-                </p>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setLoading(true);
-                    setError('');
-                    try {
-                      const data = await apiFetch('/test-login');
-                      if (data.status === 'success' && data.user) {
-                        setSuccessMessage('Test login successful!');
-                        setTimeout(() => onLogin(data.user.name), 500);
-                      } else {
-                        setError('Test login failed. Make sure backend is running.');
-                      }
-                    } catch (err) {
-                      setError('Cannot reach backend. Is it running on localhost:5000?');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  className="w-full py-2 rounded-lg text-sm text-white transition-all hover:scale-105 disabled:opacity-50 bg-yellow-600"
-                >
-                  {loading ? 'Loading...' : '🔓 Test Login (No DB)'}
-                </button>
-              </div>
-            )}
-
             <div className="flex gap-3 pt-4">
               {mode === 'login' ? (
                 <>

@@ -10,8 +10,11 @@ def create_user(name, email, password, store_id=None, phone=None, role="employee
 
     Returns a safe user dict (id, name, email, created_at, store_id, phone, role) on success.
     """
-    conn = get_connection()
+    import sys
+    import traceback
+    conn = None
     try:
+        conn = get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         # hash and store as utf-8 string
@@ -32,9 +35,16 @@ def create_user(name, email, password, store_id=None, phone=None, role="employee
 
         user = cursor.fetchone()
         conn.commit()
+        cursor.close()
         return {"status": "success", "user": user}
+    except Exception as e:
+        error_msg = f"Database error in create_user: {str(e)}"
+        print(error_msg, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return {"status": "error", "message": "Failed to create user"}
     finally:
-        return_connection(conn)
+        if conn:
+            return_connection(conn)
 
 
 def authenticate_user(email, password):
@@ -42,8 +52,11 @@ def authenticate_user(email, password):
 
     Returns a safe user dict (id, name, email, created_at) on success.
     """
-    conn = get_connection()
+    import sys
+    import traceback
+    conn = None
     try:
+        conn = get_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         cursor.execute(
@@ -51,6 +64,7 @@ def authenticate_user(email, password):
             (email,),
         )
         user = cursor.fetchone()
+        cursor.close()
 
         if not user:
             return {"status": "error", "message": "User not found"}
@@ -72,8 +86,14 @@ def authenticate_user(email, password):
         }
 
         return {"status": "success", "user": safe_user}
+    except Exception as e:
+        error_msg = f"Database error in authenticate_user: {str(e)}"
+        print(error_msg, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return {"status": "error", "message": "Database connection failed"}
     finally:
-        return_connection(conn)
+        if conn:
+            return_connection(conn)
 
 
 def request_password_reset(email):
