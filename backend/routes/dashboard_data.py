@@ -12,6 +12,19 @@ bp = Blueprint("dashboard_data", __name__, url_prefix="/api/v1/dashboard")
 
 
 # =========================================================
+# HANDLE OPTIONS PREFLIGHT REQUESTS (CORS)
+# =========================================================
+
+@bp.options('/imports')
+@bp.options('/production-summary')
+@bp.options('/waste-summary')
+@bp.options('/quick-stats')
+def handle_preflight():
+    """Handle CORS preflight requests - must NOT require authentication"""
+    return '', 204
+
+
+# =========================================================
 # IMPORT STATUS & HISTORY
 # =========================================================
 
@@ -299,60 +312,77 @@ def get_quick_stats():
         if not store_id:
             return jsonify({"error": "store_id required"}), 400
         
-        conn = get_connection()
-        cur = conn.cursor()
+        try:
+            conn = get_connection()
+        except Exception as e:
+            print(f"[ERROR] get_quick_stats: Database connection failed: {e}")
+            return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
         
-        # Last 7 days stats
-        cur.execute("""
-            SELECT
-                SUM(dt.produced) AS total_produced_7d,
-                SUM(dt.waste) AS total_waste_7d,
-                COUNT(DISTINCT dt.date) AS days_recorded_7d,
-                COUNT(DISTINCT dt.product_id) AS unique_products_7d
-            FROM public.daily_throwaway dt
-            WHERE dt.store_id = %s
-              AND dt.date >= CURRENT_DATE - INTERVAL '7 days'
-        """, (store_id,))
-        
-        result = cur.fetchone()
-        stats_7d = {
-            "total_produced": result[0] or 0,
-            "total_waste": result[1] or 0,
-            "days_recorded": result[2] or 0,
-            "unique_products": result[3] or 0
-        }
-        
-        # Calculate waste ratio
-        if stats_7d["total_produced"] > 0:
-            stats_7d["waste_ratio"] = round(100.0 * stats_7d["total_waste"] / stats_7d["total_produced"], 2)
-        else:
-            stats_7d["waste_ratio"] = 0
-        
-        # Most wasted product
-        cur.execute("""
-            SELECT
-                p.product_name,
-                SUM(dt.waste) AS total_waste
-            FROM public.daily_throwaway dt
-            JOIN public.products p ON p.product_id = dt.product_id
-            WHERE dt.store_id = %s
-              AND dt.date >= CURRENT_DATE - INTERVAL '7 days'
-            GROUP BY p.product_id, p.product_name
-            ORDER BY total_waste DESC
-            LIMIT 3
-        """, (store_id,))
-        
-        top_waste_products = [{"product": row[0], "waste": row[1]} for row in cur.fetchall()]
-        
-        cur.close()
-        return_connection(conn)
-        
-        return jsonify({
-            "status": "success",
-            "stats_7d": stats_7d,
-            "top_waste_products": top_waste_products
-        }), 200
+        if not conn:
+            return jsonify({"error": "Could not get database connection"}), 500
+            
+        try:
+            cur = conn.cursor()
+            
+            # Last 7 days stats
+            cur.execute("""
+                SELECT
+                    SUM(dt.produced) AS total_produced_7d,
+                    SUM(dt.waste) AS total_waste_7d,
+                    COUNT(DISTINCT dt.date) AS days_recorded_7d,
+                    COUNT(DISTINCT dt.product_id) AS unique_products_7d
+                FROM public.daily_throwaway dt
+                WHERE dt.store_id = %s
+                  AND dt.date >= CURRENT_DATE - INTERVAL '7 days'
+            """, (store_id,))
+            
+            result = cur.fetchone()
+            stats_7d = {
+                "total_produced": result[0] or 0,
+                "total_waste": result[1] or 0,
+                "days_recorded": result[2] or 0,
+                "unique_products": result[3] or 0
+            }
+            
+            # Calculate waste ratio
+            if stats_7d["total_produced"] > 0:
+                stats_7d["waste_ratio"] = round(100.0 * stats_7d["total_waste"] / stats_7d["total_produced"], 2)
+            else:
+                stats_7d["waste_ratio"] = 0
+            
+            # Most wasted product
+            cur.execute("""
+                SELECT
+                    p.product_name,
+                    SUM(dt.waste) AS total_waste
+                FROM public.daily_throwaway dt
+                JOIN public.products p ON p.product_id = dt.product_id
+                WHERE dt.store_id = %s
+                  AND dt.date >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY p.product_id, p.product_name
+                ORDER BY total_waste DESC
+                LIMIT 3
+            """, (store_id,))
+            
+            top_waste_products = [{"product": row[0], "waste": row[1]} for row in cur.fetchall()]
+            
+            cur.close()
+            return_connection(conn)
+            
+            return jsonify({
+                "status": "success",
+                "stats_7d": stats_7d,
+                "top_waste_products": top_waste_products
+            }), 200
+            
+        except Exception as db_error:
+            print(f"[ERROR] get_quick_stats: Database query failed: {db_error}")
+            cur.close()
+            return_connection(conn)
+            return jsonify({"error": f"Database query failed: {str(db_error)}"}), 500
         
     except Exception as e:
         print(f"[ERROR] get_quick_stats: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
