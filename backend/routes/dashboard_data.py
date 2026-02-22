@@ -15,10 +15,10 @@ bp = Blueprint("dashboard_data", __name__, url_prefix="/api/v1/dashboard")
 # HANDLE OPTIONS PREFLIGHT REQUESTS (CORS)
 # =========================================================
 
-@bp.options('/imports')
-@bp.options('/production-summary')
-@bp.options('/waste-summary')
-@bp.options('/quick-stats')
+@bp.route('/imports', methods=['OPTIONS'])
+@bp.route('/production-summary', methods=['OPTIONS'])
+@bp.route('/waste-summary', methods=['OPTIONS'])
+@bp.route('/quick-stats', methods=['OPTIONS'])
 def handle_preflight():
     """Handle CORS preflight requests - must NOT require authentication"""
     return '', 204

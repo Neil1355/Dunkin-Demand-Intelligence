@@ -49,6 +49,15 @@ def add_cors_headers(response):
         response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS,PUT,DELETE'
     return response
 
+# Handle OPTIONS preflight requests globally (before any auth or routing)
+@app.route('/<path:path>', methods=['OPTIONS'])
+def handle_preflight(path=None):
+    """Handle CORS preflight requests"""
+    origin = request.headers.get('Origin')
+    if is_allowed_origin(origin):
+        return '', 204
+    return '', 403
+
 # 3. IMPORT ROUTES (Absolute imports)
 from routes.products import products_bp
 from routes.daily_entry import daily_bp
