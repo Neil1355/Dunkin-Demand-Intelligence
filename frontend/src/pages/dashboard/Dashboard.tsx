@@ -66,7 +66,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     const fetchHistory = async () => {
       try {
         setHistoryLoading(true);
-        const result = await apiFetch(`/forecast_history?store_id=${storeId}&days=7`);
+        const result = await apiFetch(`/forecast_history/?store_id=${storeId}&days=7`);
         setHistoryData(result || []);
       } catch (err) {
         console.error("Failed to load history:", err);

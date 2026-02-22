@@ -14,6 +14,12 @@ venv/
 
 # Environment
 .env
+.env.*
+!.env.example
+!.env.template
+.envrc
+.secrets/
+*.secret
 
 # IDEs
 .vscode/
@@ -22,3 +28,9 @@ venv/
 # OS
 .DS_Store
 sendgrid.env
+
+# Keys & certificates
+*.pem
+*.key
+*.p12
+*.pfx

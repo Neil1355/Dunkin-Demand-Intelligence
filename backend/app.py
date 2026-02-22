@@ -4,7 +4,8 @@ from flask import Flask, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-load_dotenv()
+ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 app = Flask(__name__)
 
@@ -52,6 +53,7 @@ def add_cors_headers(response):
 from routes.products import products_bp
 from routes.daily_entry import daily_bp
 from routes.auth import auth_bp
+from routes.health import health_bp
 from routes.forecast import forecast_bp
 from services.excel_import import excel_bp
 from routes.export import export_bp
@@ -82,6 +84,7 @@ from routes.users import bp as users_bp
 app.register_blueprint(products_bp, url_prefix="/api/v1/products")
 app.register_blueprint(daily_bp, url_prefix="/api/v1/daily")
 app.register_blueprint(auth_bp, url_prefix="/api/v1/auth")
+app.register_blueprint(health_bp, url_prefix="/api/v1")
 app.register_blueprint(forecast_bp, url_prefix="/api/v1/forecast")
 app.register_blueprint(excel_bp, url_prefix="/api/v1/excel")
 app.register_blueprint(export_bp, url_prefix="/api/v1/export")
