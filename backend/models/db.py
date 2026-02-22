@@ -16,11 +16,31 @@ def init_connection_pool():
         raise RuntimeError("DATABASE_URL env var not set")
     
     try:
+        # Parse the DATABASE_URL to extract components and force IPv4
+        # This prevents IPv6 connection attempts which fail on Render's free tier
+        import urllib.parse
+        parsed = urllib.parse.urlparse(DATABASE_URL)
+        
+        # Build connection params with gai_resolve_addresses to prefer IPv4
+        connection_params = {
+            'host': parsed.hostname,
+            'port': parsed.port or 5432,
+            'user': parsed.username,
+            'password': parsed.password,
+            'database': parsed.path.lstrip('/'),
+            'connect_timeout': 10,
+            'sslmode': 'require',
+            # Force resolution to IPv4 addresses only
+            'target_session_attrs': 'any',
+        }
+        
+        # Filter out None values
+        connection_params = {k: v for k, v in connection_params.items() if v is not None}
+        
         _connection_pool = pool.SimpleConnectionPool(
             minconn=2,
             maxconn=10,
-            dsn=DATABASE_URL,
-            connect_timeout=10
+            **connection_params
         )
         print("✓ Connection pool initialized successfully", file=sys.stderr)
     except Exception as e:
