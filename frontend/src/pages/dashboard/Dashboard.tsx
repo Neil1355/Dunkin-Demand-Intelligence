@@ -36,6 +36,14 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [weeklyDataLoading, setWeeklyDataLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [quickStatsData, setQuickStatsData] = useState<any>(null);
+  const [quickStatsLoading, setQuickStatsLoading] = useState(true);
+  const [productionTrendData, setProductionTrendData] = useState<any[]>([]);
+  const [productionTrendLoading, setProductionTrendLoading] = useState(true);
+  const [importHistoryData, setImportHistoryData] = useState<any[]>([]);
+  const [importHistoryLoading, setImportHistoryLoading] = useState(true);
+  const [wasteTrendData, setWasteTrendData] = useState<any[]>([]);
+  const [wasteTrendLoading, setWasteTrendLoading] = useState(true);
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
@@ -59,6 +67,91 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setDashboardData({ production: null, waste_pct: null, forecast: null });
     } finally {
       setDashboardLoading(false);
+    }
+  }
+
+  // Fetch quick stats for KPI cards
+  async function fetchQuickStats() {
+    try {
+      setQuickStatsLoading(true);
+      const result = await apiFetch(`/dashboard/quick-stats?store_id=${storeId}`);
+      setQuickStatsData(result.stats_7d || {});
+    } catch (err) {
+      console.error("Failed to load quick stats:", err);
+      setQuickStatsData(null);
+    } finally {
+      setQuickStatsLoading(false);
+    }
+  }
+
+  // Fetch production trend data
+  async function fetchProductionTrend() {
+    try {
+      setProductionTrendLoading(true);
+      const result = await apiFetch(`/dashboard/production-summary?store_id=${storeId}&days=28`);
+      
+      if (result.daily_data && result.daily_data.length > 0) {
+        // Transform for line chart - show weekly averages
+        const weeklyGroups: any = {};
+        result.daily_data.forEach((item: any, idx: number) => {
+          const weekNum = Math.ceil((result.daily_data.length - idx) / 7);
+          if (!weeklyGroups[weekNum]) {
+            weeklyGroups[weekNum] = { week: `Week ${weekNum}`, production: 0, optimal: 0, count: 0 };
+          }
+          weeklyGroups[weekNum].production += item.total_quantity || 0;
+          weeklyGroups[weekNum].count += 1;
+        });
+        
+        // Calculate averages and optimal (20% less than actual)
+        const transformedData = Object.values(weeklyGroups).map((w: any) => ({
+          week: w.week,
+          production: Math.round(w.production / w.count),
+          optimal: Math.round((w.production / w.count) * 0.8)
+        }));
+        
+        setProductionTrendData(transformedData.slice(0, 4));
+      }
+    } catch (err) {
+      console.error("Failed to load production trend:", err);
+      setProductionTrendData([]);
+    } finally {
+      setProductionTrendLoading(false);
+    }
+  }
+
+  // Fetch waste trend data
+  async function fetchWasteTrend() {
+    try {
+      setWasteTrendLoading(true);
+      const result = await apiFetch(`/dashboard/waste-summary?store_id=${storeId}&days=7`);
+      
+      if (result.daily_data && result.daily_data.length > 0) {
+        const wasteChartData = result.daily_data.map((item: any) => ({
+          day: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' }),
+          waste: item.waste_percentage || 0,
+          sales: 100 - (item.waste_percentage || 0)
+        }));
+        setWasteTrendData(wasteChartData);
+      }
+    } catch (err) {
+      console.error("Failed to load waste trend:", err);
+      setWasteTrendData([]);
+    } finally {
+      setWasteTrendLoading(false);
+    }
+  }
+
+  // Fetch recent import history
+  async function fetchImportHistory() {
+    try {
+      setImportHistoryLoading(true);
+      const result = await apiFetch(`/dashboard/imports?store_id=${storeId}&days=30`);
+      setImportHistoryData(result.imports || []);
+    } catch (err) {
+      console.error("Failed to load import history:", err);
+      setImportHistoryData([]);
+    } finally {
+      setImportHistoryLoading(false);
     }
   }
 
@@ -102,20 +195,21 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       }
     };
     
+    // Call all fetch functions
     fetchHistory();
     fetchDashboardData();
     fetchWeeklyData();
     fetchForecastPredictions();
     fetchImportedData();
+    fetchQuickStats();
+    fetchProductionTrend();
+    fetchWasteTrend();
+    fetchImportHistory();
   }, []);
 
   // Use weekly data for charts if available, otherwise use placeholder
-  const wasteData = weeklyData.length > 0 
-    ? weeklyData.map((item, idx) => ({
-        day: new Date(item.target_date || Date.now()).toLocaleDateString('en-US', { weekday: 'short' }),
-        waste: Math.round(item.avg_error_pct || 0),
-        sales: 100 - Math.round(item.avg_error_pct || 0)
-      }))
+  const wasteData = wasteTrendData.length > 0 
+    ? wasteTrendData
     : [
     { day: 'Mon', waste: 0, sales: 0 },
     { day: 'Tue', waste: 0, sales: 0 },
@@ -126,12 +220,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     { day: 'Sun', waste: 0, sales: 0 }
   ];
 
-  const trendData = weeklyData.length > 0
-    ? weeklyData.slice(0, 4).map((item, idx) => ({
-        week: `Week ${idx + 1}`,
-        production: 650 - idx * 10,
-        optimal: 620 - idx * 5
-      }))
+  const trendData = productionTrendData.length > 0
+    ? productionTrendData
     : [
     { week: 'Week 1', production: 0, optimal: 0 },
     { week: 'Week 2', production: 0, optimal: 0 },
@@ -452,23 +542,32 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               </div>
 
               {/* Quick Stats */}
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-4 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Today's Production</div>
+                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Total Produced (7d)</div>
                   <div className="text-3xl" style={{ color: '#FF671F' }}>
-                    {dashboardLoading ? '—' : dashboardData.production !== null ? `${dashboardData.production} Units` : '—'}
+                    {quickStatsLoading ? '—' : quickStatsData?.total_produced || '0'} {quickStatsData?.total_produced ? 'Units' : ''}
                   </div>
                 </div>
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Predicted Waste</div>
+                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Waste (7d)</div>
                   <div className="text-3xl" style={{ color: '#DA1884' }}>
-                    {dashboardLoading ? '—' : dashboardData.waste_pct !== null ? `${dashboardData.waste_pct}%` : '—'}
+                    {quickStatsLoading ? '—' : quickStatsData?.total_waste || '0'} {quickStatsData?.total_waste ? 'Units' : ''}
                   </div>
                 </div>
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Tomorrow's Forecast</div>
+                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Waste Ratio</div>
                   <div className="text-3xl" style={{ color: '#FF671F' }}>
-                    {dashboardData.forecast !== null ? `${dashboardData.forecast} Units` : '—'}
+                    {quickStatsLoading ? '—' : `${quickStatsData?.waste_ratio || 0}%`}
+                  </div>
+                </div>
+                <div className="bg-white rounded-3xl p-6 shadow-lg">
+                  <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Top Waste Product</div>
+                  <div className="text-lg" style={{ color: '#DA1884' }}>
+                    {quickStatsLoading ? '—' : quickStatsData?.top_waste_products?.[0]?.product || 'N/A'}
+                  </div>
+                  <div className="text-sm mt-1" style={{ color: '#8B7355' }}>
+                    {quickStatsLoading ? '' : `${quickStatsData?.top_waste_products?.[0]?.waste || 0} units`}
                   </div>
                 </div>
               </div>
@@ -477,11 +576,11 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <h3 className="mb-4" style={{ color: '#FF671F' }}>Weekly Waste vs Sales</h3>
-                  {weeklyDataLoading ? (
+                  {wasteTrendLoading ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       Loading chart data...
                     </div>
-                  ) : weeklyData.length === 0 ? (
+                  ) : wasteData.length === 0 ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       No data available yet
                     </div>
@@ -502,11 +601,11 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <h3 className="mb-4" style={{ color: '#FF671F' }}>Production Optimization</h3>
-                  {weeklyDataLoading ? (
+                  {productionTrendLoading ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       Loading chart data...
                     </div>
-                  ) : weeklyData.length === 0 ? (
+                  ) : trendData.length === 0 || trendData[0].production === 0 ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       No data available yet
                     </div>
@@ -525,8 +624,37 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                   )}
                 </div>
               </div>
-            </div>
-          )}
+
+              {/* Import History */}
+              <div className="bg-white rounded-3xl p-6 shadow-lg">
+                <h3 className="mb-4" style={{ color: '#FF671F' }}>Recent Imports</h3>
+                {importHistoryLoading ? (
+                  <div style={{ color: '#8B7355' }}>Loading import history...</div>
+                ) : importHistoryData.length === 0 ? (
+                  <div style={{ color: '#8B7355' }}>No recent imports found</div>
+                ) : (
+                  <div className="space-y-3">
+                    {importHistoryData.slice(0, 5).map((imp, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-2xl hover:shadow-md transition-all" style={{ backgroundColor: '#FFF8F0' }}>
+                        <div>
+                          <p className="font-medium" style={{ color: '#8B7355' }}>
+                            {imp.import_type === 'throwaway' ? '📦 Throwaway Data' : '📊 Production Data'}
+                          </p>
+                          <p className="text-sm" style={{ color: '#8B7355' }}>
+                            {new Date(imp.import_date).toLocaleDateString()} - {imp.products_imported} products
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium" style={{ color: '#FF671F' }}>{imp.total_records} records</p>
+                          <p className="text-sm" style={{ color: '#8B7355' }}>
+                            {imp.total_produced ? `${imp.total_produced} produced` : `${imp.total_quantity || 0} qty`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
           {activeTab === 'data-entry' && (
             <div className="space-y-6">
