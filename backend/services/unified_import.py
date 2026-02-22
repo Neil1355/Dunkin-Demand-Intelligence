@@ -111,7 +111,7 @@ class UnifiedImporter:
             
             # Extract base date from Row 2, Column B (index [1, 1])
             base_date_raw = df.iloc[1, 1]
-            base_date = pd.to_datetime(base_date_raw).date()
+            base_date = pd.to_datetime(base_date_raw).date()  # type: ignore
             
             # 7 days starting from Sunday
             dates = [base_date + timedelta(days=i) for i in range(7)]
@@ -254,7 +254,7 @@ class UnifiedImporter:
             for idx, row in df.iterrows():
                 try:
                     # Extract fields
-                    date_val = pd.to_datetime(row[date_column]).date()
+                    date_val = pd.to_datetime(row[date_column]).date()  # type: ignore
                     product_name = str(row[product_column]).strip()
                     quantity = self.safe_int(row[quantity_column])
                     
