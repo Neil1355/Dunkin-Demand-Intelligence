@@ -655,6 +655,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                   </div>
                 )}
               </div>
+            </div>
+          )}
 
           {activeTab === 'data-entry' && (
             <div className="space-y-6">
