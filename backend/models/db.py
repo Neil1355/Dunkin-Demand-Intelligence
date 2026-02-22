@@ -14,7 +14,7 @@ def init_connection_pool():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL env var not set")
     
-    _connection_pool = psycopg2.pool.SimpleConnectionPool(
+    _connection_pool = pool.SimpleConnectionPool(
         minconn=2,
         maxconn=10,
         dsn=DATABASE_URL,
