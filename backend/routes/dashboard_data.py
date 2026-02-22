@@ -8,7 +8,7 @@ from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
 from datetime import datetime, timedelta
 
-bp = Blueprint("dashboard", __name__, url_prefix="/api/v1/dashboard")
+bp = Blueprint("dashboard_data", __name__, url_prefix="/api/v1/dashboard")
 
 
 # =========================================================
