@@ -13,8 +13,13 @@ app = Flask(__name__)
 from models.db import init_connection_pool
 try:
     init_connection_pool()
+    print("✓ Database connection pool initialized", flush=True)
 except Exception as e:
-    print(f"Warning: Could not initialize connection pool: {e}")
+    error_msg = f"CRITICAL: Could not initialize connection pool: {e}"
+    print(error_msg, flush=True)
+    import sys
+    print(error_msg, file=sys.stderr, flush=True)
+    # Continue anyway so we can see the error in logs
 
 # 1. DEFINE ALLOWED ORIGINS
 DEFAULT_ORIGINS = [

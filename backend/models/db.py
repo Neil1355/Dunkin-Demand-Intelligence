@@ -2,6 +2,7 @@ import os
 import psycopg2
 from psycopg2 import pool
 import psycopg2.extras
+import sys
 
 # Connection pool initialized at module level
 _connection_pool = None
@@ -14,18 +15,26 @@ def init_connection_pool():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL env var not set")
     
-    _connection_pool = pool.SimpleConnectionPool(
-        minconn=2,
-        maxconn=10,
-        dsn=DATABASE_URL,
-        connect_timeout=10
-    )
+    try:
+        _connection_pool = pool.SimpleConnectionPool(
+            minconn=2,
+            maxconn=10,
+            dsn=DATABASE_URL,
+            connect_timeout=10
+        )
+        print("✓ Connection pool initialized successfully", file=sys.stderr)
+    except Exception as e:
+        error_msg = f"Failed to initialize connection pool: {str(e)}"
+        print(error_msg, file=sys.stderr)
+        raise RuntimeError(error_msg)
 
 def get_connection():
     """Get a connection from the pool with RealDictCursor."""
     global _connection_pool
     if _connection_pool is None:
         init_connection_pool()
+    if _connection_pool is None:
+        raise RuntimeError("Connection pool initialization failed")
     conn = _connection_pool.getconn()
     # Set RealDictCursor as the default cursor factory
     conn.cursor_factory = psycopg2.extras.RealDictCursor
