@@ -1,4 +1,5 @@
 import os
+import logging
 import psycopg2
 from psycopg2 import pool
 import psycopg2.extras
@@ -6,6 +7,7 @@ import sys
 
 # Connection pool initialized at module level
 _connection_pool = None
+_logger = logging.getLogger(__name__)
 
 def init_connection_pool():
     """Initialize the connection pool. Call this on app startup."""
@@ -16,22 +18,35 @@ def init_connection_pool():
         raise RuntimeError("DATABASE_URL env var not set")
     
     try:
-        # Parse the DATABASE_URL to extract components and force IPv4
-        # This prevents IPv6 connection attempts which fail on Render's free tier
+        # Parse the DATABASE_URL to extract components and force IPv4.
+        # This avoids IPv6-only attempts that can fail on some hosts.
+        import socket
         import urllib.parse
         parsed = urllib.parse.urlparse(DATABASE_URL)
-        
-        # Build connection params with gai_resolve_addresses to prefer IPv4
+
+        host = parsed.hostname
+        port = parsed.port or 5432
+        hostaddr = None
+        if host:
+            try:
+                # Prefer the first IPv4 address if available.
+                infos = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+                if infos:
+                    hostaddr = infos[0][4][0]
+                    _logger.info("Resolved %s to IPv4: %s", host, hostaddr)
+            except Exception as exc:
+                _logger.error("DNS resolution failed for %s: %s", host, exc)
+                hostaddr = None
+
         connection_params = {
-            'host': parsed.hostname,
-            'port': parsed.port or 5432,
+            'host': host,
+            'hostaddr': hostaddr,
+            'port': port,
             'user': parsed.username,
             'password': parsed.password,
             'database': parsed.path.lstrip('/'),
             'connect_timeout': 10,
             'sslmode': 'require',
-            # Force resolution to IPv4 addresses only
-            'target_session_attrs': 'any',
         }
         
         # Filter out None values
@@ -44,7 +59,10 @@ def init_connection_pool():
         )
         print("✓ Connection pool initialized successfully", file=sys.stderr)
     except Exception as e:
-        error_msg = f"Failed to initialize connection pool: {str(e)}"
+        error_msg = (
+            "Failed to initialize connection pool: "
+            f"{str(e)} | host={host} hostaddr={hostaddr} port={port} sslmode=require"
+        )
         print(error_msg, file=sys.stderr)
         raise RuntimeError(error_msg)
 
