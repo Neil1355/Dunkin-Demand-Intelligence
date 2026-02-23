@@ -18,7 +18,9 @@ def init_connection_pool(retry_count=0, max_retries=3):
     if not DATABASE_URL:
         error_msg = (
             "CRITICAL: DATABASE_URL environment variable is not set. "
-            "Please add it to your Render environment variables."
+            "Please add it to your Render environment variables. "
+            "Format: postgresql://user:password@host:PORT/database?sslmode=require "
+            "For Supabase on IPv4 networks: use port 6543 (connection pooler), not 5432 (direct connection)"
         )
         print(error_msg, file=sys.stderr)
         raise RuntimeError(error_msg)
@@ -70,6 +72,15 @@ def init_connection_pool(retry_count=0, max_retries=3):
             f"{str(e)} | host={host} hostaddr={hostaddr} port={port}"
         )
         print(error_msg, file=sys.stderr)
+        
+        # Provide helpful hints for common issues
+        if "does not resolve" in str(e).lower() or "name or service not known" in str(e).lower():
+            print("TIP: Check that the hostname is correct in your DATABASE_URL", file=sys.stderr)
+        elif "ipv" in str(e).lower() or "not compatible" in str(e).lower():
+            print("TIP: IPv4/IPv6 mismatch detected! For Supabase IPv4 networks, use port 6543 (connection pooler), not 5432", file=sys.stderr)
+            print("     Change: db.example.supabase.co:5432 → db.example.supabase.co:6543", file=sys.stderr)
+        elif "refused" in str(e).lower():
+            print("TIP: Connection refused - verify the port is correct and database is running", file=sys.stderr)
         
         if retry_count < max_retries:
             wait_time = 2 ** retry_count  # Exponential backoff: 1s, 2s, 4s

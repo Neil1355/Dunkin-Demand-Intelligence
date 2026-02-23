@@ -30,6 +30,34 @@ The Render deployment **cannot connect to your Supabase database** because:
 
 ## Solution Steps
 
+### ⚠️ CRITICAL: IPv4 vs IPv6 Issue (Render + Supabase)
+
+**If you see an error like:**
+```
+Not IPv4 compatible
+Use Session Pooler if on a IPv4 network
+```
+
+**This is your issue:** Supabase's direct PostgreSQL connection (port 5432) only works with IPv6. Render uses IPv4. 
+
+**The Fix:** Use Supabase's **Connection Pooler** instead (port 6543).
+
+**Change your DATABASE_URL from:**
+```
+postgresql://postgres:[PASSWORD]@db.zjqbgrtnhjesymxmlmoj.supabase.co:5432/postgres?sslmode=require
+                                                                                    ^^^^
+```
+
+**To:**
+```
+postgresql://postgres:[PASSWORD]@db.zjqbgrtnhjesymxmlmoj.supabase.co:6543/postgres?sslmode=require
+                                                                                    ^^^^
+```
+
+**That's it! Just change port `5432` → `6543`.**
+
+---
+
 ### Step 1: Verify DATABASE_URL on Render
 
 1. Go to [Render Dashboard](https://dashboard.render.com)
@@ -190,11 +218,14 @@ If tests still fail after setting DATABASE_URL:
   - Check Supabase project status
   - Verify credentials in connection string
 
-### "FATAL: invalid password"
-- **Cause:** Wrong password in DATABASE_URL
-- **Fix:**
-  - Get fresh connection string from Supabase
-  - Make sure special characters are URL-encoded
+### "Not IPv4 compatible" / "Use Session Pooler if on a IPv4 network"
+- **Cause:** Supabase port 5432 (direct connection) is IPv6-only. Render is IPv4.
+- **Fix:** **Use port 6543 (connection pooler) instead of 5432**
+  ```
+  Change: :5432 → :6543
+  ```
+- **Details:** PgBouncer pooler on port 6543 works with both IPv4 and IPv6, plus better connection pooling
+
 
 ---
 
