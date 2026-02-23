@@ -4,18 +4,24 @@ import psycopg2
 from psycopg2 import pool
 import psycopg2.extras
 import sys
+import time
 
 # Connection pool initialized at module level
 _connection_pool = None
 _logger = logging.getLogger(__name__)
 
-def init_connection_pool():
-    """Initialize the connection pool. Call this on app startup."""
+def init_connection_pool(retry_count=0, max_retries=3):
+    """Initialize the connection pool with retry logic. Call this on app startup."""
     global _connection_pool
     DATABASE_URL = os.getenv("DATABASE_URL")
     
     if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL env var not set")
+        error_msg = (
+            "CRITICAL: DATABASE_URL environment variable is not set. "
+            "Please add it to your Render environment variables."
+        )
+        print(error_msg, file=sys.stderr)
+        raise RuntimeError(error_msg)
     
     try:
         # Parse the DATABASE_URL to extract components and force IPv4.
@@ -58,6 +64,20 @@ def init_connection_pool():
             **connection_params
         )
         print("✓ Connection pool initialized successfully", file=sys.stderr)
+    except psycopg2.OperationalError as e:
+        error_msg = (
+            f"Database connection failed (attempt {retry_count + 1}/{max_retries + 1}): "
+            f"{str(e)} | host={host} hostaddr={hostaddr} port={port}"
+        )
+        print(error_msg, file=sys.stderr)
+        
+        if retry_count < max_retries:
+            wait_time = 2 ** retry_count  # Exponential backoff: 1s, 2s, 4s
+            print(f"Retrying in {wait_time}s...", file=sys.stderr)
+            time.sleep(wait_time)
+            return init_connection_pool(retry_count + 1, max_retries)
+        else:
+            raise RuntimeError(error_msg)
     except Exception as e:
         error_msg = (
             "Failed to initialize connection pool: "
