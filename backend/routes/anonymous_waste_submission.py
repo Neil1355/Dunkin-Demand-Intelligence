@@ -22,11 +22,15 @@ def submit_waste_anonymous():
         "store_pin": "1234",  // Optional - if store has PIN enabled
         "submitter_name": "John Doe",
         "product_items": [       // Array of product-level waste
-            {"product_id": 1, "product_name": "Glazed Donut", "waste_quantity": 5},
-            {"product_id": 2, "product_name": "Chocolate Frosted", "waste_quantity": 3}
+            {"product_id": 1, "product_name": "Glazed Donut", "product_type": "donut", "waste_quantity": 5},
+            {"product_id": 2, "product_name": "Chocolate Frosted", "product_type": "donut", "waste_quantity": 3},
+            {"product_id": -1, "product_name": "Custom Item", "product_type": "other", "waste_quantity": 2}
         ],
         "notes": "Extra waste from broken display"  // Optional
     }
+    
+    Note: product_type is 'donut', 'munchkin', 'bagel', 'bakery', 'muffin', or 'other'
+    Custom items use negative IDs and allow user-defined product_type
     """
     try:
         data = request.json
@@ -57,12 +61,18 @@ def submit_waste_anonymous():
         
         # Validate each product item
         total_waste = 0
+        valid_types = {'donut', 'munchkin', 'bagel', 'bakery', 'muffin', 'other'}
         for item in product_items:
             if not isinstance(item, dict):
                 return jsonify({"error": "Invalid product item format"}), 400
             
             if 'product_id' not in item or 'product_name' not in item or 'waste_quantity' not in item:
-                return jsonify({"error": "Each product item must have product_id, product_name, and waste_quantity"}), 400
+                return jsonify({"error": "Each product item must have product_id, product_name, waste_quantity, and product_type"}), 400
+            
+            # Validate product_type
+            product_type = item.get('product_type', 'other')
+            if product_type not in valid_types:
+                return jsonify({"error": f"Invalid product_type '{product_type}'. Must be one of: {', '.join(valid_types)}"}), 400
             
             try:
                 waste_qty = int(item['waste_quantity'])
@@ -119,11 +129,12 @@ def submit_waste_anonymous():
                 # Insert individual product items
                 for item in product_items:
                     if int(item['waste_quantity']) > 0:  # Only insert non-zero items
+                        product_type = item.get('product_type', 'other')  # Default to 'other' if not provided
                         cur.execute('''
                             INSERT INTO pending_waste_items 
-                            (submission_id, product_id, product_name, waste_quantity)
-                            VALUES (%s, %s, %s, %s)
-                        ''', (submission_id, item['product_id'], item['product_name'], item['waste_quantity']))
+                            (submission_id, product_id, product_name, product_type, waste_quantity)
+                            VALUES (%s, %s, %s, %s, %s)
+                        ''', (submission_id, item['product_id'], item['product_name'], product_type, item['waste_quantity']))
                 
                 conn.commit()
                 
