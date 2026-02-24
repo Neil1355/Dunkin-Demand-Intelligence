@@ -65,7 +65,7 @@ def init_connection_pool(retry_count=0, max_retries=3):
             maxconn=10,
             **connection_params
         )
-        print("✓ Connection pool initialized successfully", file=sys.stderr)
+        print("[OK] Connection pool initialized successfully", file=sys.stderr)
     except psycopg2.OperationalError as e:
         error_msg = (
             f"Database connection failed (attempt {retry_count + 1}/{max_retries + 1}): "

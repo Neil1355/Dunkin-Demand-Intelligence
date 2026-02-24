@@ -76,43 +76,6 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
     }
   };
 
-  const loadInitialData = async () => {
-    try {
-      // Check PIN requirement
-      const pinResponse = await fetch(`${API_BASE}/anonymous-waste/check-pin/${storeId}`);
-      const pinData = await pinResponse.json();
-      
-      if (!pinResponse.ok) {
-        setError('Invalid store ID');
-        setLoading(false);
-        return;
-      }
-      
-      setPinRequired(pinData.pin_required);
-
-      // Fetch products list
-      const productsResponse = await fetch(`${API_BASE}/anonymous-waste/products`);
-      const productsData = await productsResponse.json();
-      
-      if (productsResponse.ok) {
-        setProducts(productsData);
-        
-        // Initialize quantities to 0
-        const initialQuantities: ProductQuantities = {};
-        productsData.forEach((p: Product) => {
-          initialQuantities[p.product_id] = '';
-        });
-        setQuantities(initialQuantities);
-      } else {
-        setError('Failed to load products');
-      }
-    } catch (err) {
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const updateQuantity = (productId: number, value: string) => {
     setQuantities(prev => ({
       ...prev,
