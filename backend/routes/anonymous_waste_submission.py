@@ -21,9 +21,10 @@ def submit_waste_anonymous():
         "store_id": 12345,
         "store_pin": "1234",  // Optional - if store has PIN enabled
         "submitter_name": "John Doe",
-        "donut_count": 24,
-        "munchkin_count": 12,
-        "other_count": 5,     // Optional
+        "product_items": [       // Array of product-level waste
+            {"product_id": 1, "product_name": "Glazed Donut", "waste_quantity": 5},
+            {"product_id": 2, "product_name": "Chocolate Frosted", "waste_quantity": 3}
+        ],
         "notes": "Extra waste from broken display"  // Optional
     }
     """
@@ -36,9 +37,7 @@ def submit_waste_anonymous():
         
         store_id = data.get('store_id')
         submitter_name = data.get('submitter_name', '').strip()
-        donut_count = data.get('donut_count', 0)
-        munchkin_count = data.get('munchkin_count', 0)
-        other_count = data.get('other_count', 0)
+        product_items = data.get('product_items', [])
         notes = data.get('notes', '').strip()
         store_pin = data.get('store_pin', '').strip()
         
@@ -52,21 +51,31 @@ def submit_waste_anonymous():
         if len(submitter_name) < 2:
             return jsonify({"error": "Submitter name must be at least 2 characters"}), 400
         
-        # Validate counts are non-negative
-        try:
-            donut_count = int(donut_count)
-            munchkin_count = int(munchkin_count)
-            other_count = int(other_count) if other_count else 0
-            
-            if donut_count < 0 or munchkin_count < 0 or other_count < 0:
-                return jsonify({"error": "Counts cannot be negative"}), 400
-                
-        except (ValueError, TypeError):
-            return jsonify({"error": "Invalid count values"}), 400
+        # Validate product items
+        if not product_items or not isinstance(product_items, list) or len(product_items) == 0:
+            return jsonify({"error": "At least one product item is required"}), 400
         
-        # Validate at least one count is provided
-        if donut_count == 0 and munchkin_count == 0 and other_count == 0:
-            return jsonify({"error": "At least one count must be greater than 0"}), 400
+        # Validate each product item
+        total_waste = 0
+        for item in product_items:
+            if not isinstance(item, dict):
+                return jsonify({"error": "Invalid product item format"}), 400
+            
+            if 'product_id' not in item or 'product_name' not in item or 'waste_quantity' not in item:
+                return jsonify({"error": "Each product item must have product_id, product_name, and waste_quantity"}), 400
+            
+            try:
+                waste_qty = int(item['waste_quantity'])
+                if waste_qty < 0:
+                    return jsonify({"error": f"Waste quantity cannot be negative for {item['product_name']}"}), 400
+                if waste_qty > 0:
+                    total_waste += waste_qty
+            except (ValueError, TypeError):
+                return jsonify({"error": f"Invalid waste quantity for {item['product_name']}"}), 400
+        
+        # Validate at least some waste was reported
+        if total_waste == 0:
+            return jsonify({"error": "At least one product must have waste quantity greater than 0"}), 400
         
         conn = get_connection()
         
@@ -93,19 +102,28 @@ def submit_waste_anonymous():
                 ip_address = request.remote_addr
                 user_agent = request.headers.get('User-Agent', '')
                 
-                # Insert pending submission
+                # Insert pending submission (with placeholder counts for backward compatibility)
                 cur.execute('''
                     INSERT INTO pending_waste_submissions 
                     (store_id, submitter_name, donut_count, munchkin_count, other_count, 
                      notes, submission_date, ip_address, user_agent, status)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
                     RETURNING id, submitted_at
-                ''', (store_id, submitter_name, donut_count, munchkin_count, other_count,
+                ''', (store_id, submitter_name, 0, 0, 0,  # Counts set to 0, actual data in items table
                       notes, date.today(), ip_address, user_agent))
                 
                 result = cur.fetchone()
                 submission_id = result['id'] if isinstance(result, dict) else result[0]
                 submitted_at = result['submitted_at'] if isinstance(result, dict) else result[1]
+                
+                # Insert individual product items
+                for item in product_items:
+                    if int(item['waste_quantity']) > 0:  # Only insert non-zero items
+                        cur.execute('''
+                            INSERT INTO pending_waste_items 
+                            (submission_id, product_id, product_name, waste_quantity)
+                            VALUES (%s, %s, %s, %s)
+                        ''', (submission_id, item['product_id'], item['product_name'], item['waste_quantity']))
                 
                 conn.commit()
                 
@@ -116,8 +134,8 @@ def submit_waste_anonymous():
                     "submitted_at": submitted_at.isoformat() if hasattr(submitted_at, 'isoformat') else str(submitted_at),
                     "store_id": store_id,
                     "submitter_name": submitter_name,
-                    "donut_count": donut_count,
-                    "munchkin_count": munchkin_count,
+                    "product_items_count": len([i for i in product_items if int(i['waste_quantity']) > 0]),
+                    "total_waste": total_waste
                     "other_count": other_count
                 }), 201
                 
@@ -160,3 +178,55 @@ def check_pin_requirement(store_id):
     except Exception as e:
         print(f"Error checking PIN requirement: {e}")
         return jsonify({"error": "Failed to check PIN requirement"}), 500
+
+
+@anonymous_waste_bp.route("/products", methods=["GET"])
+def get_products_for_waste():
+    """
+    Public endpoint to get list of all active products for waste submission
+    No authentication required
+    """
+    try:
+        conn = get_connection()
+        
+        try:
+            with conn.cursor() as cur:
+                cur.execute('''
+                    SELECT product_id, product_name, product_type, is_active
+                    FROM products
+                    WHERE is_active = true
+                    ORDER BY 
+                        CASE product_type
+                            WHEN 'donut' THEN 1
+                            WHEN 'munchkin' THEN 2
+                            WHEN 'bagel' THEN 3
+                            WHEN 'muffin' THEN 4
+                            WHEN 'bakery' THEN 5
+                            ELSE 6
+                        END,
+                        product_name
+                ''')
+                
+                rows = cur.fetchall()
+                
+                # Convert to list of dicts
+                products = []
+                for row in rows:
+                    if isinstance(row, dict):
+                        products.append(row)
+                    else:
+                        products.append({
+                            'product_id': row[0],
+                            'product_name': row[1],
+                            'product_type': row[2],
+                            'is_active': row[3]
+                        })
+                
+                return jsonify(products), 200
+                
+        finally:
+            return_connection(conn)
+            
+    except Exception as e:
+        print(f"Error fetching products: {e}")
+        return jsonify({"error": "Failed to fetch products"}), 500

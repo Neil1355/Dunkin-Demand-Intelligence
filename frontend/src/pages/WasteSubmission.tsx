@@ -5,6 +5,17 @@ interface WasteSubmissionProps {
   onBack: () => void;
 }
 
+interface Product {
+  product_id: number;
+  product_name: string;
+  product_type: string;
+  is_active: boolean;
+}
+
+interface ProductQuantities {
+  [key: number]: string; // product_id -> quantity string
+}
+
 export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
   const [pinRequired, setPinRequired] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -12,36 +23,101 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // Products data
+  const [products, setProducts] = useState<Product[]>([]);
+  const [quantities, setQuantities] = useState<ProductQuantities>({});
+
   // Form fields
   const [submitterName, setSubmitterName] = useState('');
   const [storePin, setStorePin] = useState('');
-  const [donutCount, setDonutCount] = useState('');
-  const [munchkinCount, setMunchkinCount] = useState('');
-  const [otherCount, setOtherCount] = useState('');
   const [notes, setNotes] = useState('');
 
   const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
-  // Check if PIN is required on load
+  // Load data on mount
   useEffect(() => {
-    checkPinRequirement();
+    loadInitialData();
   }, [storeId]);
 
-  const checkPinRequirement = async () => {
+  const loadInitialData = async () => {
     try {
-      const response = await fetch(`${API_BASE}/anonymous-waste/check-pin/${storeId}`);
-      const data = await response.json();
+      // Check PIN requirement
+      const pinResponse = await fetch(`${API_BASE}/anonymous-waste/check-pin/${storeId}`);
+      const pinData = await pinResponse.json();
       
-      if (response.ok) {
-        setPinRequired(data.pin_required);
-      } else {
+      if (!pinResponse.ok) {
         setError('Invalid store ID');
+        setLoading(false);
+        return;
+      }
+      
+      setPinRequired(pinData.pin_required);
+
+      // Fetch products list
+      const productsResponse = await fetch(`${API_BASE}/anonymous-waste/products`);
+      const productsData = await productsResponse.json();
+      
+      if (productsResponse.ok) {
+        setProducts(productsData);
+        
+        // Initialize quantities to 0
+        const initialQuantities: ProductQuantities = {};
+        productsData.forEach((p: Product) => {
+          initialQuantities[p.product_id] = '';
+        });
+        setQuantities(initialQuantities);
+      } else {
+        setError('Failed to load products');
       }
     } catch (err) {
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadInitialData = async () => {
+    try {
+      // Check PIN requirement
+      const pinResponse = await fetch(`${API_BASE}/anonymous-waste/check-pin/${storeId}`);
+      const pinData = await pinResponse.json();
+      
+      if (!pinResponse.ok) {
+        setError('Invalid store ID');
+        setLoading(false);
+        return;
+      }
+      
+      setPinRequired(pinData.pin_required);
+
+      // Fetch products list
+      const productsResponse = await fetch(`${API_BASE}/anonymous-waste/products`);
+      const productsData = await productsResponse.json();
+      
+      if (productsResponse.ok) {
+        setProducts(productsData);
+        
+        // Initialize quantities to 0
+        const initialQuantities: ProductQuantities = {};
+        productsData.forEach((p: Product) => {
+          initialQuantities[p.product_id] = '';
+        });
+        setQuantities(initialQuantities);
+      } else {
+        setError('Failed to load products');
+      }
+    } catch (err) {
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateQuantity = (productId: number, value: string) => {
+    setQuantities(prev => ({
+      ...prev,
+      [productId]: value
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,12 +132,17 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
       return;
     }
 
-    const donut = parseInt(donutCount) || 0;
-    const munchkin = parseInt(munchkinCount) || 0;
-    const other = parseInt(otherCount) || 0;
+    // Build product items array (only non-zero quantities)
+    const productItems = products
+      .map(p => ({
+        product_id: p.product_id,
+        product_name: p.product_name,
+        waste_quantity: parseInt(quantities[p.product_id]) || 0
+      }))
+      .filter(item => item.waste_quantity > 0);
 
-    if (donut === 0 && munchkin === 0 && other === 0) {
-      setError('Please enter at least one count');
+    if (productItems.length === 0) {
+      setError('Please enter at least one waste quantity');
       setSubmitting(false);
       return;
     }
@@ -76,9 +157,7 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
       store_id: parseInt(storeId),
       store_pin: pinRequired ? storePin : undefined,
       submitter_name: submitterName.trim(),
-      donut_count: donut,
-      munchkin_count: munchkin,
-      other_count: other,
+      product_items: productItems,
       notes: notes.trim()
     };
 
@@ -96,9 +175,11 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
         // Reset form
         setSubmitterName('');
         setStorePin('');
-        setDonutCount('');
-        setMunchkinCount('');
-        setOtherCount('');
+        const resetQuantities: ProductQuantities = {};
+        products.forEach(p => {
+          resetQuantities[p.product_id] = '';
+        });
+        setQuantities(resetQuantities);
         setNotes('');
       } else {
         setError(data.error || 'Submission failed');
@@ -333,94 +414,84 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
             </div>
           )}
 
-          {/* Donut Count */}
-          <div style={{ marginBottom: '20px' }}>
+          {/* Products by Category */}
+          <div style={{ marginBottom: '25px' }}>
             <label style={{ 
               display: 'block',
               color: '#333',
               fontWeight: '600',
-              marginBottom: '8px',
-              fontSize: '0.95rem'
+              marginBottom: '12px',
+              fontSize: '1rem'
             }}>
-              Donut Count
+              Waste Quantities by Product *
             </label>
-            <input
-              type="number"
-              value={donutCount}
-              onChange={(e) => setDonutCount(e.target.value)}
-              placeholder="0"
-              min="0"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '1rem',
-                border: '2px solid #ddd',
-                borderRadius: '8px',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#FF6B35'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
-            />
-          </div>
-
-          {/* Munchkin Count */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ 
-              display: 'block',
-              color: '#333',
-              fontWeight: '600',
-              marginBottom: '8px',
-              fontSize: '0.95rem'
-            }}>
-              Munchkin Count
-            </label>
-            <input
-              type="number"
-              value={munchkinCount}
-              onChange={(e) => setMunchkinCount(e.target.value)}
-              placeholder="0"
-              min="0"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '1rem',
-                border: '2px solid #ddd',
-                borderRadius: '8px',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#FF6B35'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
-            />
-          </div>
-
-          {/* Other Count */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ 
-              display: 'block',
-              color: '#333',
-              fontWeight: '600',
-              marginBottom: '8px',
-              fontSize: '0.95rem'
-            }}>
-              Other Count (Optional)
-            </label>
-            <input
-              type="number"
-              value={otherCount}
-              onChange={(e) => setOtherCount(e.target.value)}
-              placeholder="0"
-              min="0"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '1rem',
-                border: '2px solid #ddd',
-                borderRadius: '8px',
-                boxSizing: 'border-box'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#FF6B35'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
-            />
+            
+            {/* Group products by type */}
+            {['donut', 'munchkin', 'bagel', 'muffin', 'bakery', 'other'].map(type => {
+              const typeProducts = products.filter(p => p.product_type === type);
+              if (typeProducts.length === 0) return null;
+              
+              const typeLabel = type.charAt(0).toUpperCase() + type.slice(1) + 's';
+              const typeColor = type === 'donut' ? '#FF671F' : type === 'munchkin' ? '#DA1884' : '#8B7355';
+              
+              return (
+                <div key={type} style={{ marginBottom: '20px' }}>
+                  <div style={{ 
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: typeColor,
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {typeLabel}
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr',
+                    gap: '8px'
+                  }}>
+                    {typeProducts.map(product => (
+                      <div key={product.product_id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        background: '#FFF8F0',
+                        borderRadius: '8px',
+                        border: '1px solid #FFE8D6'
+                      }}>
+                        <span style={{
+                          color: '#333',
+                          fontSize: '0.9rem',
+                          flex: 1
+                        }}>
+                          {product.product_name}
+                        </span>
+                        <input
+                          type="number"
+                          value={quantities[product.product_id]}
+                          onChange={(e) => updateQuantity(product.product_id, e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          style={{
+                            width: '70px',
+                            padding: '6px 8px',
+                            fontSize: '0.95rem',
+                            border: '2px solid #ddd',
+                            borderRadius: '6px',
+                            textAlign: 'center',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = typeColor}
+                          onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Notes */}
