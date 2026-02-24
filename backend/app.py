@@ -90,7 +90,7 @@ from routes.daily_throwaway import bp as daily_throwaway_bp
 from routes.daily_waste import bp as daily_waste_bp
 from routes.forecast_final import bp as forecast_final_bp
 from routes.forecast_history import bp as forecast_history_bp
-from routes.forecast_raw import bp as forecast_raw_bp
+from routes.forecast_raw import bp as forecast_raw_bp, bp_alt as forecast_raw_alt_bp
 from routes.manager_context import bp as manager_context_bp
 from routes.users import bp as users_bp
 from routes.dashboard_data import bp as dashboard_data_bp
@@ -124,7 +124,8 @@ app.register_blueprint(daily_throwaway_bp, url_prefix="/api/v1/daily_throwaway")
 app.register_blueprint(daily_waste_bp, url_prefix="/api/v1/daily_waste")
 app.register_blueprint(forecast_final_bp, url_prefix="/api/v1/forecast_final")
 app.register_blueprint(forecast_history_bp, url_prefix="/api/v1/forecast_history")
-app.register_blueprint(forecast_raw_bp, url_prefix="/api/v1/forecast_raw")
+app.register_blueprint(forecast_raw_bp)  # Already has /api/v1/forecast prefix
+app.register_blueprint(forecast_raw_alt_bp)  # Alternate route with /api/v1/forecast_raw
 app.register_blueprint(manager_context_bp, url_prefix="/api/v1/manager_context")
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(dashboard_data_bp, url_prefix="/api/v1/dashboard")

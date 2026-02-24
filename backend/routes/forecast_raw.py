@@ -1,22 +1,46 @@
 from flask import Blueprint, request, jsonify, abort
 from models.db import get_connection, return_connection
 
-bp = Blueprint('forecast_raw', __name__, url_prefix='/api/v1/forecast_raw')
+bp = Blueprint('forecast_raw', __name__, url_prefix='/api/v1/forecast')
+
+# Support both /api/v1/forecast and /api/v1/forecast_raw for compatibility
+bp_alt = Blueprint('forecast_raw_alt', __name__, url_prefix='/api/v1/forecast_raw')
 
 
 @bp.route('/', methods=['GET'])
+@bp_alt.route('/', methods=['GET'])
 def list_raw():
+    """Get forecast predictions - supports query params"""
+    store_id = request.args.get('store_id', type=int)
+    target_date = request.args.get('target_date', type=str)
+    
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT * FROM forecast_raw;')
+            if store_id and target_date:
+                cur.execute('SELECT * FROM forecast_raw WHERE store_id=%s AND forecast_date=%s;', (store_id, target_date))
+            elif store_id:
+                cur.execute('SELECT * FROM forecast_raw WHERE store_id=%s ORDER BY forecast_date DESC LIMIT 10;', (store_id,))
+            else:
+                cur.execute('SELECT * FROM forecast_raw ORDER BY forecast_date DESC LIMIT 100;')
             rows = cur.fetchall()
-        return jsonify(rows), 200
+        
+        # Convert rows to list of dicts if using RealDictCursor, otherwise format as needed
+        result = []
+        if rows:
+            if isinstance(rows[0], dict):
+                result = rows
+            else:
+                # Handle tuple results - would need to know column names
+                result = [{"message": "No forecast data available"}] if not rows else rows
+        
+        return jsonify(result) if result else jsonify({"error": "No forecast found"}), 200 if result else 404
     finally:
         return_connection(conn)
 
 
 @bp.route('/<int:forecast_id>', methods=['GET'])
+@bp_alt.route('/<int:forecast_id>', methods=['GET'])
 def get_raw(forecast_id):
     conn = get_connection()
     try:
@@ -31,6 +55,7 @@ def get_raw(forecast_id):
 
 
 @bp.route('/', methods=['POST'])
+@bp_alt.route('/', methods=['POST'])
 def create_raw():
     data = request.get_json() or {}
     conn = get_connection()
@@ -45,6 +70,7 @@ def create_raw():
 
 
 @bp.route('/<int:forecast_id>', methods=['PUT'])
+@bp_alt.route('/<int:forecast_id>', methods=['PUT'])
 def update_raw(forecast_id):
     data = request.get_json() or {}
     conn = get_connection()
@@ -58,6 +84,7 @@ def update_raw(forecast_id):
 
 
 @bp.route('/<int:forecast_id>', methods=['DELETE'])
+@bp_alt.route('/<int:forecast_id>', methods=['DELETE'])
 def delete_raw(forecast_id):
     conn = get_connection()
     try:

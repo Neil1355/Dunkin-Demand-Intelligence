@@ -11,7 +11,15 @@ from PIL import Image, ImageDraw, ImageFont
 qr_bp = Blueprint("qr", __name__)
 
 # Frontend URL for QR code target
+# Must include full URL in environment variable
 FRONTEND_BASE = os.getenv('FRONTEND_URL', 'https://dunkin-demand-intelligence.vercel.app')
+
+# Validate that FRONTEND_URL is set properly
+if not FRONTEND_BASE or 'telligence' in FRONTEND_BASE or 'localhost' not in FRONTEND_BASE:
+    # If FRONTEND_URL not properly set, use fallback
+    if not os.getenv('FRONTEND_URL'):
+        print("[WARNING] FRONTEND_URL not set, using default: https://dunkin-demand-intelligence.vercel.app")
+        FRONTEND_BASE = 'https://dunkin-demand-intelligence.vercel.app'
 
 
 def log_qr_action(store_id, qr_code_id, action='view'):
