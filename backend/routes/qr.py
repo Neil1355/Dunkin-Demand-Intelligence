@@ -65,7 +65,7 @@ def create_qr_with_header(url, store_id):
     # Create QR code
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
         box_size=10,
         border=2,
     )
@@ -74,7 +74,7 @@ def create_qr_with_header(url, store_id):
     
     qr_img = qr.make_image(fill_color="black", back_color="white")
     # Convert to RGB mode to ensure compatibility when pasting
-    qr_img = qr_img.convert('RGB')
+    qr_img = qr_img.convert('RGB')  # type: ignore
     
     # Create header image
     header_text = "Submit Waste for Today\nBy Scanning QR Code Below"
@@ -179,7 +179,7 @@ def get_or_create_qr(store_id):
         # Generate QR code
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
             box_size=10,
             border=2,
         )
@@ -188,7 +188,7 @@ def get_or_create_qr(store_id):
         
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
+        img.save(buffer, format="PNG")  # type: ignore
         buffer.seek(0)
         qr_base64 = base64.b64encode(buffer.getvalue()).decode()
         
@@ -310,7 +310,7 @@ def regenerate_qr(store_id):
         
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,  # type: ignore
             box_size=10,
             border=2,
         )
@@ -319,7 +319,7 @@ def regenerate_qr(store_id):
         
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
+        img.save(buffer, format="PNG")  # type: ignore
         buffer.seek(0)
         qr_base64 = base64.b64encode(buffer.getvalue()).decode()
         

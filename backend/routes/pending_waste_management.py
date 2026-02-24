@@ -21,7 +21,7 @@ def get_pending_submissions():
     - date (optional): Filter by submission date (YYYY-MM-DD)
     """
     try:
-        user = request.user  # From JWT decorator
+        user = request.user  # type: ignore # From JWT decorator
         store_id = request.args.get('store_id', type=int)
         status = request.args.get('status', 'pending')
         submission_date = request.args.get('date')
@@ -161,7 +161,7 @@ def approve_submission():
     }
     """
     try:
-        user = request.user
+        user = request.user  # type: ignore
         data = request.json
         
         if not data:
@@ -270,7 +270,7 @@ def edit_and_save_submission():
     }
     """
     try:
-        user = request.user
+        user = request.user  # type: ignore
         data = request.json
         
         if not data:
@@ -385,7 +385,7 @@ def discard_submission():
     }
     """
     try:
-        user = request.user
+        user = request.user  # type: ignore
         data = request.json
         
         if not data:
