@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from models.db import get_connection, return_connection
 from datetime import date, timedelta
 
-forecast_bp = Blueprint("forecast", __name__, url_prefix="/forecast")
+forecast_bp = Blueprint("forecast", __name__)
 
 @forecast_bp.get("/next-day")
 def next_day_forecast():

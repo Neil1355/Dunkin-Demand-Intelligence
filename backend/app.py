@@ -127,7 +127,7 @@ app.register_blueprint(forecast_history_bp, url_prefix="/api/v1/forecast_history
 app.register_blueprint(forecast_raw_bp, url_prefix="/api/v1/forecast_raw")
 app.register_blueprint(manager_context_bp, url_prefix="/api/v1/manager_context")
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
-app.register_blueprint(dashboard_data_bp)
+app.register_blueprint(dashboard_data_bp, url_prefix="/api/v1/dashboard")
 
 @app.get("/")
 def home():

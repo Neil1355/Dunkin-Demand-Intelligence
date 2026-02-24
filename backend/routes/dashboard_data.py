@@ -337,18 +337,38 @@ def get_quick_stats():
             """, (store_id,))
             
             result = cur.fetchone()
-            stats_7d = {
-                "total_produced": result[0] or 0,
-                "total_waste": result[1] or 0,
-                "days_recorded": result[2] or 0,
-                "unique_products": result[3] or 0
-            }
             
-            # Calculate waste ratio
-            if stats_7d["total_produced"] > 0:
-                stats_7d["waste_ratio"] = round(100.0 * stats_7d["total_waste"] / stats_7d["total_produced"], 2)
+            # Handle case where no data exists
+            if result is None:
+                stats_7d = {
+                    "total_produced": 0,
+                    "total_waste": 0,
+                    "days_recorded": 0,
+                    "unique_products": 0,
+                    "waste_ratio": 0
+                }
             else:
-                stats_7d["waste_ratio"] = 0
+                # Handle RealDictCursor or tuple results
+                if isinstance(result, dict):
+                    stats_7d = {
+                        "total_produced": result.get("total_produced_7d") or 0,
+                        "total_waste": result.get("total_waste_7d") or 0,
+                        "days_recorded": result.get("days_recorded_7d") or 0,
+                        "unique_products": result.get("unique_products_7d") or 0
+                    }
+                else:
+                    stats_7d = {
+                        "total_produced": result[0] or 0,
+                        "total_waste": result[1] or 0,
+                        "days_recorded": result[2] or 0,
+                        "unique_products": result[3] or 0
+                    }
+                
+                # Calculate waste ratio
+                if stats_7d["total_produced"] > 0:
+                    stats_7d["waste_ratio"] = round(100.0 * stats_7d["total_waste"] / stats_7d["total_produced"], 2)
+                else:
+                    stats_7d["waste_ratio"] = 0
             
             # Most wasted product
             cur.execute("""
@@ -364,7 +384,13 @@ def get_quick_stats():
                 LIMIT 3
             """, (store_id,))
             
-            top_waste_products = [{"product": row[0], "waste": row[1]} for row in cur.fetchall()]
+            top_waste_rows = cur.fetchall()
+            
+            # Handle both RealDictCursor and tuple results
+            if top_waste_rows and isinstance(top_waste_rows[0], dict):
+                top_waste_products = [{"product": row["product_name"], "waste": row["total_waste"]} for row in top_waste_rows]
+            else:
+                top_waste_products = [{"product": row[0], "waste": row[1]} for row in top_waste_rows] if top_waste_rows else []
             
             cur.close()
             return_connection(conn)
