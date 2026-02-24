@@ -136,7 +136,6 @@ def submit_waste_anonymous():
                     "submitter_name": submitter_name,
                     "product_items_count": len([i for i in product_items if int(i['waste_quantity']) > 0]),
                     "total_waste": total_waste
-                    "other_count": other_count
                 }), 201
                 
         finally:
