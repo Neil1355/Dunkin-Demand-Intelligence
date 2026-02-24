@@ -3,6 +3,7 @@ import { Dashboard } from './pages/dashboard/Dashboard';
 import { LoginSignup } from './pages/auth/LoginSignup';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
 import { ResetPassword } from './pages/auth/ResetPassword';
+import { WasteSubmission } from './pages/WasteSubmission';
 import { apiClient } from './api/client';
 import heroImage from './components/landing/Gemini_Generated_Image_wcpry5wcpry5wcpr.png';
 import sprinklesBackground from './components/landing/sprinkles background.png';
@@ -16,6 +17,8 @@ export default function App() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetToken, setResetToken] = useState('');
+  const [showWasteSubmission, setShowWasteSubmission] = useState(false);
+  const [wasteSubmissionStoreId, setWasteSubmissionStoreId] = useState('');
 
   // Default item types for the Dashboard to display
   const [donutTypes, setDonutTypes] = useState<string[]>([
@@ -47,6 +50,18 @@ export default function App() {
       setResetToken(token);
       setShowResetPassword(true);
       setShowAuth(true);
+      return; // Exit early
+    }
+
+    // Check URL for waste submission (e.g., /waste/submit?store_id=12345)
+    // This makes the QR code work
+    const urlStoreId = urlParams.get('store_id');
+    const currentPath = window.location.pathname;
+    
+    // Show waste submission if store_id param exists AND not already logged in
+    if (urlStoreId && !apiClient.isLoggedIn()) {
+      setWasteSubmissionStoreId(urlStoreId);
+      setShowWasteSubmission(true);
     }
   }, []);
 
@@ -87,6 +102,22 @@ export default function App() {
     setShowForgotPassword(false);
     setAuthMode('login');
   };
+
+  const handleBackFromWasteSubmission = () => {
+    setShowWasteSubmission(false);
+    // Clear URL parameters
+    window.history.pushState({}, '', '/');
+  };
+
+  // Show waste submission page if accessed via QR code
+  if (showWasteSubmission && wasteSubmissionStoreId) {
+    return (
+      <WasteSubmission 
+        storeId={wasteSubmissionStoreId}
+        onBack={handleBackFromWasteSubmission}
+      />
+    );
+  }
 
   // If logged in, show the styled Dashboard instead of the plain DailyEntryForm
   if (isLoggedIn) {
