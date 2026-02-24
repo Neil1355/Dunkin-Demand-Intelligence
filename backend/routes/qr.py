@@ -173,7 +173,8 @@ def get_or_create_qr(store_id):
             }), 200
         
         # Create new QR code
-        url = f"{FRONTEND_BASE}/waste/submit?store_id={store_id}"
+        # Use simple root URL with store_id parameter for maximum compatibility
+        url = f"{FRONTEND_BASE}?store_id={store_id}"
         
         # Generate QR code
         qr = qrcode.QRCode(
@@ -304,7 +305,8 @@ def regenerate_qr(store_id):
     """Force regenerate QR code for a store"""
     try:
         # Always create new QR
-        url = f"{FRONTEND_BASE}/waste/submit?store_id={store_id}"
+        # Use simple root URL with store_id parameter for maximum compatibility
+        url = f"{FRONTEND_BASE}?store_id={store_id}"
         
         qr = qrcode.QRCode(
             version=1,
