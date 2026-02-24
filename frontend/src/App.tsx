@@ -34,15 +34,19 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    // PRIORITY 1: Check URL for waste submission FIRST (QR code flow)
+    // PRIORITY 1: Check URL PATH for waste submission FIRST (QR code flow)
+    // QR code should point to /waste?store_id=12345
+    const pathname = window.location.pathname;
     const urlParams = new URLSearchParams(window.location.search);
     const urlStoreId = urlParams.get('store_id');
     
-    if (urlStoreId) {
-      // QR code scanned - show waste submission regardless of login status
-      setWasteSubmissionStoreId(urlStoreId);
-      setShowWasteSubmission(true);
-      return; // Exit early - don't check anything else
+    if (pathname === '/waste' || pathname === '/submit') {
+      if (urlStoreId) {
+        // QR code scanned - show waste submission regardless of login status
+        setWasteSubmissionStoreId(urlStoreId);
+        setShowWasteSubmission(true);
+        return; // Exit early - don't check anything else
+      }
     }
 
     // PRIORITY 2: Check for password reset token

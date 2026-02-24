@@ -14,12 +14,13 @@ anonymous_waste_bp = Blueprint("anonymous_waste", __name__, url_prefix="/api/v1/
 def submit_waste_anonymous():
     """
     Public endpoint for employees to submit waste counts via QR code
-    No authentication required - uses store PIN for validation
+    Accessed via QR code scan at /waste?store_id=12345
+    REQUIRES store PIN for security (anyone with store_id could submit otherwise)
     
     Request body:
     {
         "store_id": 12345,
-        "store_pin": "1234",  // Optional - if store has PIN enabled
+        "store_pin": "1234",  // REQUIRED - all stores must have a PIN set for waste submission
         "submitter_name": "John Doe",
         "product_items": [       // Array of product-level waste
             {"product_id": 1, "product_name": "Glazed Donut", "product_type": "donut", "waste_quantity": 5},
@@ -31,6 +32,8 @@ def submit_waste_anonymous():
     
     Note: product_type is 'donut', 'munchkin', 'bagel', 'bakery', 'muffin', or 'other'
     Custom items use negative IDs and allow user-defined product_type
+    
+    Security: PIN is MANDATORY to prevent unauthorized waste submissions from store_id tampering
     """
     try:
         data = request.json
@@ -101,12 +104,18 @@ def submit_waste_anonymous():
                 # Validate PIN if store has one set
                 stored_pin = store['store_pin'] if isinstance(store, dict) else store[1]
                 
-                if stored_pin:
-                    if not store_pin:
-                        return jsonify({"error": "Store PIN is required", "pin_required": True}), 401
-                    
-                    if store_pin != stored_pin:
-                        return jsonify({"error": "Invalid store PIN", "pin_required": True}), 401
+                # PIN is MANDATORY - all stores must have one for waste submission to work
+                if not stored_pin:
+                    return jsonify({
+                        "error": "Store is not set up for waste submission. Contact your store manager.",
+                        "pin_required": True
+                    }), 400
+                
+                if not store_pin:
+                    return jsonify({"error": "Store PIN is required", "pin_required": True}), 401
+                
+                if store_pin != stored_pin:
+                    return jsonify({"error": "Invalid store PIN", "pin_required": True}), 401
                 
                 # Get client info for audit
                 ip_address = request.remote_addr

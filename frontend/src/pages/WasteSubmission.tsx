@@ -16,6 +16,12 @@ interface ProductQuantities {
   [key: number]: string; // product_id -> quantity string
 }
 
+interface CustomProduct {
+  name: string;
+  quantity: number;
+  type: 'donut' | 'munchkin' | 'bagel' | 'bakery' | 'muffin' | 'other';
+}
+
 export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
   const [pinRequired, setPinRequired] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,7 +39,8 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
   const [notes, setNotes] = useState('');
   const [customProductName, setCustomProductName] = useState('');
   const [customProductQuantity, setCustomProductQuantity] = useState('');
-  const [customProducts, setCustomProducts] = useState<Array<{name: string, quantity: number}>>([]);
+  const [customProductType, setCustomProductType] = useState<'donut' | 'munchkin' | 'bagel' | 'bakery' | 'muffin' | 'other'>('other');
+  const [customProducts, setCustomProducts] = useState<CustomProduct[]>([]);
 
   const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
@@ -103,6 +110,7 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
       .map(p => ({
         product_id: p.product_id,
         product_name: p.product_name,
+        product_type: p.product_type,
         waste_quantity: parseInt(quantities[p.product_id]) || 0
       }))
       .filter(item => item.waste_quantity > 0);
@@ -112,6 +120,7 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
       productItems.push({
         product_id: -(idx + 1), // Negative IDs for custom items
         product_name: custom.name,
+        product_type: custom.type,
         waste_quantity: custom.quantity
       });
     });
@@ -529,9 +538,10 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
             <div style={{ 
               display: 'flex', 
               gap: '8px',
-              alignItems: 'flex-end'
+              alignItems: 'flex-end',
+              flexWrap: 'wrap'
             }}>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: '150px' }}>
                 <input
                   type="text"
                   value={customProductName}
@@ -547,7 +557,29 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
                   }}
                 />
               </div>
-              <div style={{ width: '100px' }}>
+              <div style={{ minWidth: '110px' }}>
+                <select
+                  value={customProductType}
+                  onChange={(e) => setCustomProductType(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '0.9rem',
+                    border: '2px solid #ddd',
+                    borderRadius: '8px',
+                    boxSizing: 'border-box',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="donut">Donut</option>
+                  <option value="munchkin">Munchkin</option>
+                  <option value="bagel">Bagel</option>
+                  <option value="bakery">Bakery</option>
+                  <option value="muffin">Muffin</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div style={{ minWidth: '80px' }}>
                 <input
                   type="number"
                   value={customProductQuantity}
@@ -570,11 +602,13 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
                 onClick={() => {
                   if (customProductName.trim() && customProductQuantity && parseInt(customProductQuantity) > 0) {
                     setCustomProducts([...customProducts, { 
-                      name: customProductName.trim(), 
-                      quantity: parseInt(customProductQuantity) 
+                      name: customProductName.trim(),
+                      quantity: parseInt(customProductQuantity),
+                      type: customProductType
                     }]);
                     setCustomProductName('');
                     setCustomProductQuantity('');
+                    setCustomProductType('other');
                   }
                 }}
                 style={{
@@ -585,7 +619,8 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
                   borderRadius: '8px',
                   fontSize: '0.9rem',
                   cursor: 'pointer',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  minWidth: '60px'
                 }}
               >
                 Add
