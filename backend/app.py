@@ -83,6 +83,8 @@ from routes.qr import qr_bp
 from routes.dashboard import dashboard_bp
 from routes.system_health import system_health_bp
 from routes.throwaway_import import throwaway_import_bp
+from routes.anonymous_waste_submission import anonymous_waste_bp
+from routes.pending_waste_management import pending_waste_bp
 from routes.calendar_events import bp as calendar_events_bp
 from routes.daily_production import bp as daily_production_bp
 from routes.daily_production_plan import bp as daily_production_plan_bp
@@ -115,6 +117,8 @@ app.register_blueprint(waste_submission_bp, url_prefix="/api/v1/waste_submission
 app.register_blueprint(dashboard_bp, url_prefix="/api/v1/dashboard")
 app.register_blueprint(system_health_bp, url_prefix="/api/v1")
 app.register_blueprint(qr_bp, url_prefix="/api/v1/qr")
+app.register_blueprint(anonymous_waste_bp)  # Already has url_prefix in blueprint
+app.register_blueprint(pending_waste_bp)  # Already has url_prefix in blueprint
 
 # Table route blueprints
 app.register_blueprint(calendar_events_bp, url_prefix="/api/v1/calendar_events")
