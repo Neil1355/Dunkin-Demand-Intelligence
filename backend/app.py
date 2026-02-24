@@ -23,6 +23,7 @@ except Exception as e:
 
 # 1. DEFINE ALLOWED ORIGINS
 DEFAULT_ORIGINS = [
+    "https://dunkin-demand-intelligence-9l6cla1z3.vercel.app",
     "https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app",
     "https://dunkin-demand-intelligence-h7bvxrxzh.vercel.app",
     "https://dunkin-demand-intelligence.vercel.app"
