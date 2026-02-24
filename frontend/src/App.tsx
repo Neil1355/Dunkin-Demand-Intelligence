@@ -34,17 +34,18 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    // Check if user is already logged in on page load
-    if (apiClient.isLoggedIn()) {
-      const user = apiClient.getUser();
-      if (user) {
-        setUsername(user.name);
-        setIsLoggedIn(true);
-      }
+    // PRIORITY 1: Check URL for waste submission FIRST (QR code flow)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlStoreId = urlParams.get('store_id');
+    
+    if (urlStoreId) {
+      // QR code scanned - show waste submission regardless of login status
+      setWasteSubmissionStoreId(urlStoreId);
+      setShowWasteSubmission(true);
+      return; // Exit early - don't check anything else
     }
 
-    // Check URL for reset token (e.g., ?token=abc123)
-    const urlParams = new URLSearchParams(window.location.search);
+    // PRIORITY 2: Check for password reset token
     const token = urlParams.get('token');
     if (token) {
       setResetToken(token);
@@ -53,15 +54,13 @@ export default function App() {
       return; // Exit early
     }
 
-    // Check URL for waste submission (e.g., /waste/submit?store_id=12345)
-    // This makes the QR code work
-    const urlStoreId = urlParams.get('store_id');
-    const currentPath = window.location.pathname;
-    
-    // Show waste submission if store_id param exists AND not already logged in
-    if (urlStoreId && !apiClient.isLoggedIn()) {
-      setWasteSubmissionStoreId(urlStoreId);
-      setShowWasteSubmission(true);
+    // PRIORITY 3: Check if user is already logged in
+    if (apiClient.isLoggedIn()) {
+      const user = apiClient.getUser();
+      if (user) {
+        setUsername(user.name);
+        setIsLoggedIn(true);
+      }
     }
   }, []);
 
