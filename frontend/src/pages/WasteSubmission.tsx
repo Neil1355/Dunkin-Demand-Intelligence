@@ -31,6 +31,9 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
   const [submitterName, setSubmitterName] = useState('');
   const [storePin, setStorePin] = useState('');
   const [notes, setNotes] = useState('');
+  const [customProductName, setCustomProductName] = useState('');
+  const [customProductQuantity, setCustomProductQuantity] = useState('');
+  const [customProducts, setCustomProducts] = useState<Array<{name: string, quantity: number}>>([]);
 
   const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
@@ -104,7 +107,16 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
       }))
       .filter(item => item.waste_quantity > 0);
 
-    if (productItems.length === 0) {
+    // Add custom products (use negative IDs to distinguish from DB products)
+    customProducts.forEach((custom, idx) => {
+      productItems.push({
+        product_id: -(idx + 1), // Negative IDs for custom items
+        product_name: custom.name,
+        waste_quantity: custom.quantity
+      });
+    });
+
+    if (productItems.length === 0 && customProducts.length === 0) {
       setError('Please enter at least one waste quantity');
       setSubmitting(false);
       return;
@@ -143,6 +155,9 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
           resetQuantities[p.product_id] = '';
         });
         setQuantities(resetQuantities);
+        setCustomProducts([]);
+        setCustomProductName('');
+        setCustomProductQuantity('');
         setNotes('');
       } else {
         setError(data.error || 'Submission failed');
@@ -390,12 +405,12 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
             </label>
             
             {/* Group products by type */}
-            {['donut', 'munchkin', 'bagel', 'muffin', 'bakery', 'other'].map(type => {
+            {['donut', 'munchkin'].map(type => {
               const typeProducts = products.filter(p => p.product_type === type);
               if (typeProducts.length === 0) return null;
               
-              const typeLabel = type.charAt(0).toUpperCase() + type.slice(1) + 's';
-              const typeColor = type === 'donut' ? '#FF671F' : type === 'munchkin' ? '#DA1884' : '#8B7355';
+              const typeLabel = type === 'donut' ? 'Donuts' : 'Munchkins';
+              const typeColor = type === 'donut' ? '#FF671F' : '#DA1884';
               
               return (
                 <div key={type} style={{ marginBottom: '20px' }}>
@@ -455,6 +470,127 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
                 </div>
               );
             })}
+          </div>
+
+          {/* Add Custom Item Section */}
+          <div style={{ marginBottom: '25px' }}>
+            <div style={{ 
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              color: '#8B7355',
+              marginBottom: '12px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              + Add Other Item
+            </div>
+            
+            {/* Custom products list */}
+            {customProducts.length > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                {customProducts.map((item, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    background: '#FFF8F0',
+                    borderRadius: '8px',
+                    border: '1px solid #FFE8D6',
+                    marginBottom: '8px'
+                  }}>
+                    <span style={{ color: '#333', fontSize: '0.9rem', flex: 1 }}>
+                      {item.name}
+                    </span>
+                    <span style={{ color: '#8B7355', fontSize: '0.9rem', marginRight: '12px' }}>
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomProducts(customProducts.filter((_, i) => i !== idx))}
+                      style={{
+                        background: '#ff4444',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add custom item form */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px',
+              alignItems: 'flex-end'
+            }}>
+              <div style={{ flex: 1 }}>
+                <input
+                  type="text"
+                  value={customProductName}
+                  onChange={(e) => setCustomProductName(e.target.value)}
+                  placeholder="Product name (e.g., Croissant)"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '0.9rem',
+                    border: '2px solid #ddd',
+                    borderRadius: '8px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div style={{ width: '100px' }}>
+                <input
+                  type="number"
+                  value={customProductQuantity}
+                  onChange={(e) => setCustomProductQuantity(e.target.value)}
+                  placeholder="Qty"
+                  min="1"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: '0.9rem',
+                    border: '2px solid #ddd',
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (customProductName.trim() && customProductQuantity && parseInt(customProductQuantity) > 0) {
+                    setCustomProducts([...customProducts, { 
+                      name: customProductName.trim(), 
+                      quantity: parseInt(customProductQuantity) 
+                    }]);
+                    setCustomProductName('');
+                    setCustomProductQuantity('');
+                  }
+                }}
+                style={{
+                  background: '#8B7355',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Add
+              </button>
+            </div>
           </div>
 
           {/* Notes */}
