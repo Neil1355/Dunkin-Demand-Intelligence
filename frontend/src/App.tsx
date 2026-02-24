@@ -295,7 +295,7 @@ export default function App() {
       {/* Footer */}
       <div style={{ 
         backgroundColor: '#4A2C2A', 
-        padding: '40px 60px',
+        padding: 'clamp(20px, 5vw, 40px) clamp(20px, 5vw, 60px)',
         marginTop: '60px',
         borderTop: '4px solid #F58220'
       }}>
@@ -303,8 +303,8 @@ export default function App() {
           maxWidth: '1200px', 
           margin: '0 auto', 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(3, 1fr)', 
-          gap: '40px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: 'clamp(20px, 5vw, 40px)',
           color: '#F5F0E8'
         }}>
           {/* Left Column - About */}
@@ -395,8 +395,10 @@ export default function App() {
               style={{ 
                 color: '#F5F0E8', 
                 textDecoration: 'none', 
-                fontSize: '0.9rem',
-                transition: 'color 0.2s'
+                fontSize: 'clamp(0.75rem, 2vw, 0.9rem)',
+                transition: 'color 0.2s',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word'
               }}
               onMouseEnter={(e) => e.currentTarget.style.color = '#F58220'}
               onMouseLeave={(e) => e.currentTarget.style.color = '#F5F0E8'}
