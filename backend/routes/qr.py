@@ -12,14 +12,14 @@ qr_bp = Blueprint("qr", __name__)
 
 # Frontend URL for QR code target
 # Must include full URL in environment variable
-FRONTEND_BASE = os.getenv('FRONTEND_URL', 'https://dunkin-demand-intelligence-9ntmmr92a.vercel.app')
+FRONTEND_BASE = os.getenv('FRONTEND_URL', 'https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app')
 
 # Validate that FRONTEND_URL is set properly
 if not FRONTEND_BASE or 'telligence' in FRONTEND_BASE:
     # If FRONTEND_URL not properly set, use fallback
     if not os.getenv('FRONTEND_URL'):
-        print("[WARNING] FRONTEND_URL not set, using default: https://dunkin-demand-intelligence-9ntmmr92a.vercel.app")
-    FRONTEND_BASE = 'https://dunkin-demand-intelligence-9ntmmr92a.vercel.app'
+        print("[WARNING] FRONTEND_URL not set, using default: https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app")
+    FRONTEND_BASE = 'https://dunkin-demand-intelligence-neil-barots-projects-55b3b305.vercel.app'
 elif FRONTEND_BASE.startswith('http://localhost') or FRONTEND_BASE.startswith('http://127.0.0.1'):
     # Local development is OK
     print(f"[INFO] Using local frontend URL: {FRONTEND_BASE}")
