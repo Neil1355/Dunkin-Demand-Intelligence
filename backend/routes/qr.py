@@ -24,7 +24,6 @@ elif FRONTEND_BASE.startswith('http://localhost') or FRONTEND_BASE.startswith('h
     # Local development is OK
     print(f"[INFO] Using local frontend URL: {FRONTEND_BASE}")
 
-
 def log_qr_action(store_id, qr_code_id, action='view'):
     """Log QR code access for audit purposes"""
     try:
@@ -41,7 +40,6 @@ def log_qr_action(store_id, qr_code_id, action='view'):
         return_connection(conn)
     except Exception as e:
         print(f"Error logging QR action: {e}")
-
 
 def qr_code_exists(store_id):
     """Check if QR code already exists for store"""

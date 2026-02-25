@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 /// <reference types="vite/client" />
-import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode } from 'lucide-react';
+import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck } from 'lucide-react';
 // @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
@@ -21,7 +21,12 @@ interface DashboardProps {
 
 export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+    return window.innerWidth >= 1024;
+  });
   const [editingItem, setEditingItem] = useState<{ type: 'donut' | 'munchkin'; index: number; value: string } | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [addingType, setAddingType] = useState<'donut' | 'munchkin' | null>(null);
@@ -44,10 +49,27 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [importHistoryLoading, setImportHistoryLoading] = useState(true);
   const [wasteTrendData, setWasteTrendData] = useState<any[]>([]);
   const [wasteTrendLoading, setWasteTrendLoading] = useState(true);
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [pendingError, setPendingError] = useState('');
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
   );
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Fetch dashboard data
   async function fetchDashboardData() {
@@ -155,6 +177,53 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     }
   }
 
+  async function fetchPendingSubmissions() {
+    try {
+      setPendingLoading(true);
+      setPendingError('');
+      const result = await apiFetch(`/pending-waste/list?store_id=${storeId}&status=pending`);
+      setPendingSubmissions(result.submissions || []);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load pending submissions';
+      setPendingError(errorMsg);
+      setPendingSubmissions([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }
+
+  async function handleApproveSubmission(submissionId: number) {
+    if (!confirm('Approve this submission as-is?')) {
+      return;
+    }
+
+    try {
+      await apiFetch('/pending-waste/approve', {
+        method: 'POST',
+        body: JSON.stringify({ submission_id: submissionId })
+      });
+      fetchPendingSubmissions();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Approval failed';
+      alert(errorMsg);
+    }
+  }
+
+  async function handleDiscardSubmission(submissionId: number) {
+    const reason = prompt('Discard this submission? Optional reason:') || '';
+
+    try {
+      await apiFetch('/pending-waste/discard', {
+        method: 'POST',
+        body: JSON.stringify({ submission_id: submissionId, reason })
+      });
+      fetchPendingSubmissions();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Discard failed';
+      alert(errorMsg);
+    }
+  }
+
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -205,6 +274,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchProductionTrend();
     fetchWasteTrend();
     fetchImportHistory();
+    fetchPendingSubmissions();
   }, []);
 
   // Use weekly data for charts if available, otherwise use placeholder
@@ -232,6 +302,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'data-entry', icon: Pencil, label: 'Enter Daily Data' },
+    { id: 'pending-waste', icon: ClipboardCheck, label: 'Pending Waste' },
     { id: 'predictions', icon: TrendingUp, label: 'Predictions' },
     { id: 'history', icon: History, label: 'History' },
     { id: 'imported', icon: Download, label: 'Imported Data' },
@@ -466,10 +537,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   }
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="flex min-h-screen" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Sidebar */}
       <aside
-        className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 overflow-hidden flex-shrink-0`}
+        className={`fixed top-0 left-0 h-full w-64 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 z-30 lg:static lg:translate-x-0`}
         style={{ backgroundColor: '#DA1884' }}
       >
         <div className="p-6">
@@ -504,10 +575,17 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         </div>
       </aside>
 
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Top Bar */}
-        <div className="bg-white shadow-sm p-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="bg-white shadow-sm p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -523,7 +601,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
           <button
             onClick={handleExportData}
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105 w-full sm:w-auto"
             style={{ backgroundColor: '#FF671F' }}
           >
             <Download size={18} />
@@ -532,7 +610,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         </div>
 
         {/* Dashboard Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
+          <div className="mx-auto w-full max-w-6xl">
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               {/* Greeting */}
@@ -542,7 +621,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               </div>
 
               {/* Quick Stats */}
-              <div className="grid md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Total Produced (7d)</div>
                   <div className="text-3xl" style={{ color: '#FF671F' }}>
@@ -573,7 +652,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               </div>
 
               {/* Charts */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <h3 className="mb-4" style={{ color: '#FF671F' }}>Weekly Waste vs Sales</h3>
                   {wasteTrendLoading ? (
@@ -715,7 +794,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                     </div>
                   )}
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {donutTypes.map((donut, index) => (
                       <div key={index} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
                         {editingItem?.type === 'donut' && editingItem.index === index ? (
@@ -824,7 +903,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                     </div>
                   )}
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {munchkinTypes.map((munchkin, index) => (
                       <div key={index} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
                         {editingItem?.type === 'munchkin' && editingItem.index === index ? (
@@ -903,6 +982,100 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             </div>
           )}
 
+          {activeTab === 'pending-waste' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl p-6 shadow-lg">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <h3 style={{ color: '#FF671F' }}>Pending Waste Submissions</h3>
+                  <button
+                    onClick={fetchPendingSubmissions}
+                    className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                    style={{ backgroundColor: '#FF671F' }}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <p className="mb-6" style={{ color: '#8B7355' }}>
+                  Review waste submissions from staff QR scans and approve or discard them.
+                </p>
+
+                {pendingLoading ? (
+                  <div style={{ color: '#8B7355' }}>Loading pending submissions...</div>
+                ) : pendingError ? (
+                  <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF3F3', color: '#B42318' }}>
+                    {pendingError}
+                  </div>
+                ) : pendingSubmissions.length === 0 ? (
+                  <div style={{ color: '#8B7355' }}>No pending submissions right now.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingSubmissions.map((submission) => {
+                      const items = submission.items || [];
+                      const totalWaste = items.reduce((sum: number, item: any) => sum + (item.waste_quantity || 0), 0);
+                      return (
+                        <div key={submission.id} className="rounded-2xl p-4 sm:p-6" style={{ backgroundColor: '#FFF8F0' }}>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <div className="text-sm" style={{ color: '#8B7355' }}>Submitted by</div>
+                              <div className="text-lg" style={{ color: '#DA1884' }}>{submission.submitter_name}</div>
+                            </div>
+                            <div className="text-sm" style={{ color: '#8B7355' }}>
+                              {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'Unknown time'}
+                            </div>
+                          </div>
+
+                          {submission.notes && (
+                            <div className="mt-3 text-sm" style={{ color: '#8B7355' }}>
+                              Notes: {submission.notes}
+                            </div>
+                          )}
+
+                          <div className="mt-4">
+                            <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Items ({totalWaste} units)</div>
+                            {items.length === 0 ? (
+                              <div className="text-sm" style={{ color: '#8B7355' }}>
+                                No item details available for this submission.
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {items.map((item: any, idx: number) => (
+                                  <div key={`${submission.id}-${idx}`} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ backgroundColor: '#FFFFFF' }}>
+                                    <div>
+                                      <div style={{ color: '#8B7355' }}>{item.product_name}</div>
+                                      <div className="text-xs" style={{ color: '#8B7355' }}>{item.product_type || 'other'}</div>
+                                    </div>
+                                    <div style={{ color: '#FF671F' }}>{item.waste_quantity}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                            <button
+                              onClick={() => handleApproveSubmission(submission.id)}
+                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                              style={{ backgroundColor: '#2F9E44' }}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleDiscardSubmission(submission.id)}
+                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                              style={{ backgroundColor: '#DA1884' }}
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'predictions' && (
             <div className="bg-white rounded-3xl p-8 shadow-lg">
               <h3 className="mb-6" style={{ color: '#FF671F' }}>AI-Powered Forecast</h3>
@@ -921,7 +1094,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                   {/* All Products */}
                   <div className="mb-8">
                     <h4 className="mb-4" style={{ color: '#DA1884' }}>All Products</h4>
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {forecastPredictions.map((product) => (
                         <div key={product.product_id} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
                           <span style={{ color: '#8B7355' }}>{product.product_name}</span>
@@ -1034,6 +1207,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               <ManagerQRCode storeId={storeId} />
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
