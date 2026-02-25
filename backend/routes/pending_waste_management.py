@@ -3,6 +3,7 @@ Pending Waste Submissions Management Routes (Manager - Auth Required)
 Allows managers to view, approve, edit, or discard employee waste submissions
 """
 from flask import Blueprint, jsonify, request
+import traceback
 from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
 from datetime import datetime, date
@@ -148,6 +149,7 @@ def get_pending_submissions():
             
     except Exception as e:
         print(f"Error fetching pending submissions: {e}")
+        traceback.print_exc()
         return jsonify({"error": "Failed to fetch submissions"}), 500
 
 
