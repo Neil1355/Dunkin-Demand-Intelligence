@@ -140,7 +140,10 @@ export default function App() {
   // Landing page for users who are not logged in
   return (
     <div style={{ 
-      minHeight: '100vh', 
+      minHeight: '100vh',
+      width: '100%',
+      maxWidth: '100vw',
+      overflowX: 'hidden',
       backgroundImage: `url(${sprinklesBackground})`,
       backgroundRepeat: 'repeat',
       backgroundSize: '600px 600px',
@@ -398,7 +401,9 @@ export default function App() {
                 fontSize: 'clamp(0.75rem, 2vw, 0.9rem)',
                 transition: 'color 0.2s',
                 wordBreak: 'break-word',
-                overflowWrap: 'break-word'
+                overflowWrap: 'break-word',
+                display: 'inline-block',
+                maxWidth: '100%'
               }}
               onMouseEnter={(e) => e.currentTarget.style.color = '#F58220'}
               onMouseLeave={(e) => e.currentTarget.style.color = '#F5F0E8'}
