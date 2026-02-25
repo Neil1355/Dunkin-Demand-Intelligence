@@ -95,6 +95,9 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     setError('');
     setSubmitting(true);
 
@@ -133,6 +136,13 @@ export function WasteSubmission({ storeId, onBack }: WasteSubmissionProps) {
 
     if (pinRequired && storePin.length !== 4) {
       setError('PIN must be 4 digits');
+      setSubmitting(false);
+      return;
+    }
+
+    const totalWaste = productItems.reduce((sum, item) => sum + (item.waste_quantity || 0), 0);
+    const confirmMessage = `Submit waste for ${totalWaste} item${totalWaste === 1 ? '' : 's'}?`;
+    if (!window.confirm(confirmMessage)) {
       setSubmitting(false);
       return;
     }
