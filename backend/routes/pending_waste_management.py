@@ -63,8 +63,22 @@ def get_pending_submissions():
                 # Convert to list of dicts
                 submissions = []
                 for row in rows:
-                    if isinstance(row, dict):
-                        submissions.append(row)
+                    if isinstance(row, dict) or hasattr(row, "keys"):
+                        row_dict = dict(row)
+                        submissions.append({
+                            "id": row_dict.get("id"),
+                            "store_id": row_dict.get("store_id"),
+                            "submitter_name": row_dict.get("submitter_name"),
+                            "donut_count": row_dict.get("donut_count"),
+                            "munchkin_count": row_dict.get("munchkin_count"),
+                            "other_count": row_dict.get("other_count"),
+                            "notes": row_dict.get("notes"),
+                            "submission_date": row_dict.get("submission_date").isoformat() if row_dict.get("submission_date") and hasattr(row_dict.get("submission_date"), 'isoformat') else str(row_dict.get("submission_date")) if row_dict.get("submission_date") else None,
+                            "submitted_at": row_dict.get("submitted_at").isoformat() if row_dict.get("submitted_at") and hasattr(row_dict.get("submitted_at"), 'isoformat') else str(row_dict.get("submitted_at")) if row_dict.get("submitted_at") else None,
+                            "status": row_dict.get("status"),
+                            "reviewed_by": row_dict.get("reviewed_by"),
+                            "reviewed_at": row_dict.get("reviewed_at").isoformat() if row_dict.get("reviewed_at") and hasattr(row_dict.get("reviewed_at"), 'isoformat') else str(row_dict.get("reviewed_at")) if row_dict.get("reviewed_at") else None
+                        })
                     else:
                         submissions.append({
                             "id": row[0],
@@ -96,13 +110,14 @@ def get_pending_submissions():
                         item_rows = cur.fetchall()
 
                         for item in item_rows:
-                            if isinstance(item, dict):
-                                submission_id = item["submission_id"]
+                            if isinstance(item, dict) or hasattr(item, "keys"):
+                                item_dict = dict(item)
+                                submission_id = item_dict.get("submission_id")
                                 item_payload = {
-                                    "product_id": item.get("product_id"),
-                                    "product_name": item.get("product_name"),
-                                    "product_type": item.get("product_type"),
-                                    "waste_quantity": item.get("waste_quantity")
+                                    "product_id": item_dict.get("product_id"),
+                                    "product_name": item_dict.get("product_name"),
+                                    "product_type": item_dict.get("product_type"),
+                                    "waste_quantity": item_dict.get("waste_quantity")
                                 }
                             else:
                                 submission_id = item[0]
