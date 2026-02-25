@@ -85,33 +85,37 @@ def get_pending_submissions():
                 submission_ids = [s["id"] for s in submissions if s.get("id")]
                 items_by_submission = {}
                 if submission_ids:
-                    cur.execute('''
-                        SELECT submission_id, product_id, product_name, product_type, waste_quantity
-                        FROM pending_waste_items
-                        WHERE submission_id = ANY(%s)
-                        ORDER BY submission_id, product_name
-                    ''', (submission_ids,))
-                    item_rows = cur.fetchall()
+                    try:
+                        submission_id_tuple = tuple(submission_ids)
+                        cur.execute('''
+                            SELECT submission_id, product_id, product_name, product_type, waste_quantity
+                            FROM pending_waste_items
+                            WHERE submission_id IN %s
+                            ORDER BY submission_id, product_name
+                        ''', (submission_id_tuple,))
+                        item_rows = cur.fetchall()
 
-                    for item in item_rows:
-                        if isinstance(item, dict):
-                            submission_id = item["submission_id"]
-                            item_payload = {
-                                "product_id": item.get("product_id"),
-                                "product_name": item.get("product_name"),
-                                "product_type": item.get("product_type"),
-                                "waste_quantity": item.get("waste_quantity")
-                            }
-                        else:
-                            submission_id = item[0]
-                            item_payload = {
-                                "product_id": item[1],
-                                "product_name": item[2],
-                                "product_type": item[3],
-                                "waste_quantity": item[4]
-                            }
+                        for item in item_rows:
+                            if isinstance(item, dict):
+                                submission_id = item["submission_id"]
+                                item_payload = {
+                                    "product_id": item.get("product_id"),
+                                    "product_name": item.get("product_name"),
+                                    "product_type": item.get("product_type"),
+                                    "waste_quantity": item.get("waste_quantity")
+                                }
+                            else:
+                                submission_id = item[0]
+                                item_payload = {
+                                    "product_id": item[1],
+                                    "product_name": item[2],
+                                    "product_type": item[3],
+                                    "waste_quantity": item[4]
+                                }
 
-                        items_by_submission.setdefault(submission_id, []).append(item_payload)
+                            items_by_submission.setdefault(submission_id, []).append(item_payload)
+                    except Exception as item_error:
+                        print(f"Warning: Could not load pending waste items: {item_error}")
 
                 for submission in submissions:
                     submission["items"] = items_by_submission.get(submission.get("id"), [])
