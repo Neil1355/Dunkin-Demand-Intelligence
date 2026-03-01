@@ -6,10 +6,40 @@ bp = Blueprint('forecast_history', __name__, url_prefix='/api/v1/forecast_histor
 
 @bp.route('/', methods=['GET'])
 def list_history():
+    store_id = request.args.get('store_id', type=int)
+    days = request.args.get('days', type=int, default=7)
+    
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT * FROM forecast_history;')
+            if store_id:
+                # Filter by store_id and recent days, include approved pending waste
+                cur.execute('''
+                    SELECT * FROM forecast_history
+                    WHERE store_id = %s
+                      AND target_date >= CURRENT_DATE - INTERVAL '%s days'
+                    UNION ALL
+                    SELECT NULL as forecast_history_id, pws.store_id, pwi.product_id, 
+                           NULL as forecast_date, pws.submission_date as target_date,
+                           NULL as predicted_quantity, NULL as model_version, NULL as created_at,
+                           'approved' as status, NULL as manager_override_quantity,
+                           NULL as confidence, NULL as notes, NULL as expectation,
+                           NULL as approved_by, pws.reviewed_at as approved_at,
+                           pwi.waste_quantity as final_quantity,
+                           NULL as context_expectation, NULL as context_multiplier,
+                           NULL as adjusted_quantity, NULL as actual_sold,
+                           NULL as forecast_error, NULL as error_pct
+                    FROM pending_waste_items pwi
+                    JOIN pending_waste_submissions pws ON pws.id = pwi.submission_id
+                    WHERE pws.store_id = %s
+                      AND pws.submission_date >= CURRENT_DATE - INTERVAL '%s days'
+                      AND pws.status IN ('approved', 'edited')
+                    ORDER BY target_date DESC
+                ''', (store_id, f'{days} days', store_id, f'{days} days'))
+            else:
+                # No filtering, return all
+                cur.execute('SELECT * FROM forecast_history;')
+            
             rows = cur.fetchall()
         return jsonify(rows), 200
     finally:
