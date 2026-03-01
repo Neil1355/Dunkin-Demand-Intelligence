@@ -35,7 +35,7 @@ def list_history():
                       AND pws.submission_date >= CURRENT_DATE - INTERVAL '%s days'
                       AND pws.status IN ('approved', 'edited')
                     ORDER BY target_date DESC
-                ''', (store_id, f'{days} days', store_id, f'{days} days'))
+                ''', (store_id, days, store_id, days))
             else:
                 # No filtering, return all
                 cur.execute('SELECT * FROM forecast_history;')
