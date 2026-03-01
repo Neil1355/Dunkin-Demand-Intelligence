@@ -278,28 +278,57 @@ def approve_submission():
                     WHERE id = %s
                 ''', (reviewer_id, submission_id))
                 
-                # Insert into daily_waste table (if it exists)
-                # Note: This assumes daily_waste table has these columns
-                # Adjust based on your actual schema
-                cur.execute("SAVEPOINT pending_approve_daily_waste")
+                # Get items from pending_waste_items to insert into daily_throwaway
+                cur.execute('''
+                    SELECT product_id, product_name, product_type, waste_quantity
+                    FROM pending_waste_items
+                    WHERE submission_id = %s
+                ''', (submission_id,))
+                
+                items = cur.fetchall()
+                
+                # Insert each item into daily_throwaway table (per-product tracking)
+                cur.execute("SAVEPOINT pending_approve_daily_throwaway")
                 try:
-                    cur.execute('''
-                        INSERT INTO daily_waste 
-                        (store_id, date, donut_waste, munchkin_waste, other_waste, notes)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (store_id, date) 
-                        DO UPDATE SET 
-                            donut_waste = daily_waste.donut_waste + EXCLUDED.donut_waste,
-                            munchkin_waste = daily_waste.munchkin_waste + EXCLUDED.munchkin_waste,
-                            other_waste = daily_waste.other_waste + EXCLUDED.other_waste,
-                            notes = COALESCE(daily_waste.notes || E'\\n' || EXCLUDED.notes, EXCLUDED.notes)
-                    ''', (store_id, submission_date, donut_count, munchkin_count, other_count, 
-                          f"Submitted by: {submission[1] if not isinstance(submission, dict) else submission['submitter_name']}"))
-                    cur.execute("RELEASE SAVEPOINT pending_approve_daily_waste")
+                    for item in items:
+                        if isinstance(item, dict):
+                            product_id = item['product_id']
+                            waste_qty = item['waste_quantity']
+                        else:
+                            product_id = item[0]
+                            waste_qty = item[3]
+                        
+                        # Only insert if we have a valid product_id (skip custom items without ID)
+                        if product_id:
+                            # Check if record exists
+                            cur.execute('''
+                                SELECT id, waste FROM daily_throwaway
+                                WHERE store_id = %s AND product_id = %s AND date = %s
+                            ''', (store_id, product_id, submission_date))
+                            
+                            existing = cur.fetchone()
+                            
+                            if existing:
+                                # Update existing record
+                                existing_waste = existing[1] if not isinstance(existing, dict) else existing['waste']
+                                cur.execute('''
+                                    UPDATE daily_throwaway
+                                    SET waste = %s, updated_at = NOW()
+                                    WHERE store_id = %s AND product_id = %s AND date = %s
+                                ''', (existing_waste + waste_qty, store_id, product_id, submission_date))
+                            else:
+                                # Insert new record
+                                cur.execute('''
+                                    INSERT INTO daily_throwaway 
+                                    (store_id, product_id, date, waste, source, produced)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                ''', (store_id, product_id, submission_date, waste_qty, 'pending_approval', 0))
+                    
+                    cur.execute("RELEASE SAVEPOINT pending_approve_daily_throwaway")
                 except Exception as insert_error:
-                    cur.execute("ROLLBACK TO SAVEPOINT pending_approve_daily_waste")
-                    cur.execute("RELEASE SAVEPOINT pending_approve_daily_waste")
-                    print(f"Warning: Could not insert into daily_waste: {insert_error}")
+                    cur.execute("ROLLBACK TO SAVEPOINT pending_approve_daily_throwaway")
+                    cur.execute("RELEASE SAVEPOINT pending_approve_daily_throwaway")
+                    print(f"Warning: Could not insert into daily_throwaway: {insert_error}")
                     # Continue anyway - approval still recorded
                 
                 conn.commit()
@@ -465,25 +494,55 @@ def edit_and_save_submission():
                                 item['waste_quantity']
                             ))
                 
-                # Insert into daily_waste table
-                cur.execute("SAVEPOINT pending_edit_daily_waste")
+                # Insert into daily_throwaway table (per-product tracking)
+                cur.execute("SAVEPOINT pending_edit_daily_throwaway")
                 try:
+                    # Get updated items to insert into daily_throwaway
                     cur.execute('''
-                        INSERT INTO daily_waste 
-                        (store_id, date, donut_waste, munchkin_waste, other_waste, notes)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (store_id, date) 
-                        DO UPDATE SET 
-                            donut_waste = daily_waste.donut_waste + EXCLUDED.donut_waste,
-                            munchkin_waste = daily_waste.munchkin_waste + EXCLUDED.munchkin_waste,
-                            other_waste = daily_waste.other_waste + EXCLUDED.other_waste,
-                            notes = COALESCE(daily_waste.notes || E'\\n' || EXCLUDED.notes, EXCLUDED.notes)
-                    ''', (store_id, submission_date, donut_count, munchkin_count, other_count, notes))
-                    cur.execute("RELEASE SAVEPOINT pending_edit_daily_waste")
+                        SELECT product_id, waste_quantity
+                        FROM pending_waste_items
+                        WHERE submission_id = %s AND product_id IS NOT NULL
+                    ''', (submission_id,))
+                    
+                    updated_items = cur.fetchall()
+                    
+                    for item in updated_items:
+                        if isinstance(item, dict):
+                            product_id = item['product_id']
+                            waste_qty = item['waste_quantity']
+                        else:
+                            product_id = item[0]
+                            waste_qty = item[1]
+                        
+                        # Check if record exists
+                        cur.execute('''
+                            SELECT id, waste FROM daily_throwaway
+                            WHERE store_id = %s AND product_id = %s AND date = %s
+                        ''', (store_id, product_id, submission_date))
+                        
+                        existing = cur.fetchone()
+                        
+                        if existing:
+                            # Update existing record
+                            existing_waste = existing[1] if not isinstance(existing, dict) else existing['waste']
+                            cur.execute('''
+                                UPDATE daily_throwaway
+                                SET waste = %s, updated_at = NOW()
+                                WHERE store_id = %s AND product_id = %s AND date = %s
+                            ''', (existing_waste + waste_qty, store_id, product_id, submission_date))
+                        else:
+                            # Insert new record
+                            cur.execute('''
+                                INSERT INTO daily_throwaway 
+                                (store_id, product_id, date, waste, source, produced)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            ''', (store_id, product_id, submission_date, waste_qty, 'pending_approval', 0))
+                    
+                    cur.execute("RELEASE SAVEPOINT pending_edit_daily_throwaway")
                 except Exception as insert_error:
-                    cur.execute("ROLLBACK TO SAVEPOINT pending_edit_daily_waste")
-                    cur.execute("RELEASE SAVEPOINT pending_edit_daily_waste")
-                    print(f"Warning: Could not insert into daily_waste: {insert_error}")
+                    cur.execute("ROLLBACK TO SAVEPOINT pending_edit_daily_throwaway")
+                    cur.execute("RELEASE SAVEPOINT pending_edit_daily_throwaway")
+                    print(f"Warning: Could not insert into daily_throwaway: {insert_error}")
                 
                 conn.commit()
                 
