@@ -324,7 +324,7 @@ def approve_submission():
                                 print(f"[APPROVE DEBUG] Updating existing record: id={existing[0] if not isinstance(existing, dict) else existing['id']}, old_waste={existing_waste}, adding={waste_qty}", flush=True)
                                 cur.execute('''
                                     UPDATE daily_throwaway
-                                    SET waste = %s, updated_at = NOW()
+                                    SET waste = %s, source = 'pending_approval', updated_at = NOW()
                                     WHERE store_id = %s AND product_id = %s AND date = %s
                                 ''', (existing_waste + waste_qty, store_id, product_id, submission_date))
                                 updated_count += 1
@@ -559,7 +559,7 @@ def edit_and_save_submission():
                             print(f"[EDIT DEBUG] Updating existing record: old_waste={existing_waste}, adding={waste_qty}", flush=True)
                             cur.execute('''
                                 UPDATE daily_throwaway
-                                SET waste = %s, updated_at = NOW()
+                                SET waste = %s, source = 'pending_approval', updated_at = NOW()
                                 WHERE store_id = %s AND product_id = %s AND date = %s
                             ''', (existing_waste + waste_qty, store_id, product_id, submission_date))
                             updated_count += 1
