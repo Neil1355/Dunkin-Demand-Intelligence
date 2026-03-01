@@ -172,6 +172,8 @@ def get_recent_imports():
         if not store_id:
             return jsonify({"error": "store_id required"}), 400
         
+        print(f"[RECENT-IMPORTS DEBUG] Fetching recent imports for store_id={store_id}, days={days_back}")
+        
         conn = get_connection()
         cur = conn.cursor()
         
@@ -193,6 +195,7 @@ def get_recent_imports():
         """, (store_id, days_back))
         
         weeks = cur.fetchall()
+        print(f"[RECENT-IMPORTS DEBUG] Found {len(weeks)} weeks of data")
         
         # For each week, get the products
         result = []

@@ -217,6 +217,8 @@ def get_waste_summary():
         if not store_id:
             return jsonify({"error": "store_id required"}), 400
         
+        print(f"[WASTE-SUMMARY DEBUG] Fetching waste for store_id={store_id}, days={days_back}")
+        
         conn = get_connection()
         cur = conn.cursor()
         
@@ -258,6 +260,9 @@ def get_waste_summary():
             """, (store_id, days_back))
         
         daily_data = [dict(row) for row in cur.fetchall()]
+        print(f"[WASTE-SUMMARY DEBUG] Found {len(daily_data)} daily records")
+        if daily_data:
+            print(f"[WASTE-SUMMARY DEBUG] Sample record: {daily_data[0]}")
         
         # Summary stats
         cur.execute("""
