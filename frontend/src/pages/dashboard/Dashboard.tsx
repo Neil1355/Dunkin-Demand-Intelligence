@@ -630,8 +630,19 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         // Update dashboard forecast total
         const totalForecast = result.products.reduce((sum: number, p: any) => sum + (p.final_quantity || p.predicted_quantity || 0), 0);
         setDashboardData((prev: any) => ({ ...prev, forecast: totalForecast }));
+      } else {
+        setForecastPredictions([]);
+        setDashboardData((prev: any) => ({ ...prev, forecast: 0 }));
       }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+
+      if (message.toLowerCase().includes("no forecast found")) {
+        setForecastPredictions([]);
+        setDashboardData((prev: any) => ({ ...prev, forecast: 0 }));
+        return;
+      }
+
       console.error("Failed to load forecast predictions:", err);
       setForecastPredictions([]);
     } finally {
