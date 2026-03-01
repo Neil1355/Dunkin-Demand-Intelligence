@@ -52,6 +52,14 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingError, setPendingError] = useState('');
+  const [editingSubmissionId, setEditingSubmissionId] = useState<number | null>(null);
+  const [editSubmissionValues, setEditSubmissionValues] = useState<{
+    donut_count: number;
+    munchkin_count: number;
+    other_count: number;
+    notes: string;
+  }>({ donut_count: 0, munchkin_count: 0, other_count: 0, notes: '' });
+  const [expandedImportedWeeks, setExpandedImportedWeeks] = useState<Record<string, boolean>>({});
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
@@ -202,6 +210,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         method: 'POST',
         body: JSON.stringify({ submission_id: submissionId })
       });
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+      if (editingSubmissionId === submissionId) {
+        setEditingSubmissionId(null);
+      }
       fetchPendingSubmissions();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Approval failed';
@@ -217,6 +229,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         method: 'POST',
         body: JSON.stringify({ submission_id: submissionId, reason })
       });
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+      if (editingSubmissionId === submissionId) {
+        setEditingSubmissionId(null);
+      }
       fetchPendingSubmissions();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Discard failed';
@@ -224,27 +240,41 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     }
   }
 
-  async function handleEditSubmission(submission: any) {
-    const newDonutCount = prompt('Edit Donut Count:', String(submission.donut_count || 0));
-    const newMunchkinCount = prompt('Edit Munchkin Count:', String(submission.munchkin_count || 0));
-    const newOtherCount = prompt('Edit Other Count:', String(submission.other_count || 0));
-    const newNotes = prompt('Edit Notes:', submission.notes || '');
+  function startEditSubmission(submission: any) {
+    setEditingSubmissionId(submission.id);
+    setEditSubmissionValues({
+      donut_count: Number(submission.donut_count) || 0,
+      munchkin_count: Number(submission.munchkin_count) || 0,
+      other_count: Number(submission.other_count) || 0,
+      notes: submission.notes || ''
+    });
+  }
 
-    if (newDonutCount === null || newMunchkinCount === null) {
-      return; // User cancelled
-    }
+  function cancelEditSubmission() {
+    setEditingSubmissionId(null);
+  }
 
+  function updateEditCounter(field: 'donut_count' | 'munchkin_count' | 'other_count', delta: number) {
+    setEditSubmissionValues((prev) => ({
+      ...prev,
+      [field]: Math.max(0, (prev[field] || 0) + delta)
+    }));
+  }
+
+  async function saveEditSubmission(submissionId: number) {
     try {
       await apiFetch('/pending-waste/edit-and-save', {
         method: 'POST',
         body: JSON.stringify({
-          submission_id: submission.id,
-          donut_count: parseInt(newDonutCount) || 0,
-          munchkin_count: parseInt(newMunchkinCount) || 0,
-          other_count: parseInt(newOtherCount || '0') || 0,
-          notes: newNotes || ''
+          submission_id: submissionId,
+          donut_count: editSubmissionValues.donut_count,
+          munchkin_count: editSubmissionValues.munchkin_count,
+          other_count: editSubmissionValues.other_count,
+          notes: editSubmissionValues.notes || ''
         })
       });
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+      setEditingSubmissionId(null);
       fetchPendingSubmissions();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Edit failed';
@@ -1079,29 +1109,93 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                             )}
                           </div>
 
-                          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                            <button
-                              onClick={() => handleApproveSubmission(submission.id)}
-                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
-                              style={{ backgroundColor: '#2F9E44' }}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleEditSubmission(submission)}
-                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
-                              style={{ backgroundColor: '#FF671F' }}
-                            >
-                              Edit & Save
-                            </button>
-                            <button
-                              onClick={() => handleDiscardSubmission(submission.id)}
-                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
-                              style={{ backgroundColor: '#DA1884' }}
-                            >
-                              Discard
-                            </button>
-                          </div>
+                          {editingSubmissionId === submission.id ? (
+                            <div className="mt-4 space-y-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {[
+                                  { key: 'donut_count', label: 'Donuts', color: '#FF671F' },
+                                  { key: 'munchkin_count', label: 'Munchkins', color: '#DA1884' },
+                                  { key: 'other_count', label: 'Other', color: '#8B7355' }
+                                ].map((field) => {
+                                  const value = editSubmissionValues[field.key as 'donut_count' | 'munchkin_count' | 'other_count'];
+                                  return (
+                                    <div key={field.key} className="rounded-xl p-3" style={{ backgroundColor: '#FFFFFF' }}>
+                                      <div className="text-sm mb-2" style={{ color: '#8B7355' }}>{field.label}</div>
+                                      <div className="flex items-center justify-between">
+                                        <button
+                                          onClick={() => updateEditCounter(field.key as 'donut_count' | 'munchkin_count' | 'other_count', -1)}
+                                          className="w-9 h-9 rounded-full text-white"
+                                          style={{ backgroundColor: field.color }}
+                                        >
+                                          -
+                                        </button>
+                                        <div className="text-lg font-semibold" style={{ color: field.color }}>{value}</div>
+                                        <button
+                                          onClick={() => updateEditCounter(field.key as 'donut_count' | 'munchkin_count' | 'other_count', 1)}
+                                          className="w-9 h-9 rounded-full text-white"
+                                          style={{ backgroundColor: field.color }}
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div>
+                                <label className="text-sm" style={{ color: '#8B7355' }}>Notes</label>
+                                <textarea
+                                  value={editSubmissionValues.notes}
+                                  onChange={(e) => setEditSubmissionValues((prev) => ({ ...prev, notes: e.target.value }))}
+                                  className="mt-2 w-full px-3 py-2 rounded-xl border-2 focus:outline-none"
+                                  style={{ borderColor: '#FFD7B5', color: '#8B7355' }}
+                                  rows={2}
+                                />
+                              </div>
+
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                <button
+                                  onClick={() => saveEditSubmission(submission.id)}
+                                  className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                                  style={{ backgroundColor: '#FF671F' }}
+                                >
+                                  Save Edited Submission
+                                </button>
+                                <button
+                                  onClick={cancelEditSubmission}
+                                  className="px-4 py-2 rounded-full transition-all hover:scale-105"
+                                  style={{ backgroundColor: '#E0D5C7', color: '#8B7355' }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                              <button
+                                onClick={() => handleApproveSubmission(submission.id)}
+                                className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                                style={{ backgroundColor: '#2F9E44' }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => startEditSubmission(submission)}
+                                className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                                style={{ backgroundColor: '#FF671F' }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDiscardSubmission(submission.id)}
+                                className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                                style={{ backgroundColor: '#DA1884' }}
+                              >
+                                Discard
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1193,39 +1287,49 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                 <div className="space-y-6">
                   {importedData.map((week: any, idx: number) => (
                     <div key={idx} className="border rounded-lg p-4" style={{ borderColor: '#FFD7B5' }}>
-                      <div className="flex justify-between items-start mb-4">
+                      <div className="mb-3">
                         <div>
                           <p className="font-semibold" style={{ color: '#FF671F' }}>
                             Week of {new Date(week.week_start).toLocaleDateString()} to {new Date(week.week_end).toLocaleDateString()}
                           </p>
-                          <p className="text-sm" style={{ color: '#8B7355' }}>
-                            {week.product_count} products, {week.total_records} records
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm" style={{ color: '#8B7355' }}>
-                            Produced: <span className="font-semibold">{week.total_produced}</span>
-                          </p>
-                          <p className="text-sm" style={{ color: '#8B7355' }}>
-                            Waste: <span className="font-semibold">{week.total_waste}</span>
-                          </p>
                         </div>
                       </div>
 
-                      <div className="border-t" style={{ borderColor: '#FFD7B5' }}>
-                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-                          {week.products.map((product: any, pidx: number) => (
-                            <div key={pidx} className="p-2 bg-gray-50 rounded">
-                              <p className="font-medium" style={{ color: '#2D1810' }}>
-                                {product.product_name}
-                              </p>
-                              <p style={{ color: '#8B7355' }} className="text-xs">
-                                {product.days_recorded} days: {product.produced || 0} produced, {product.waste || 0} waste
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      {(() => {
+                        const weekKey = `${week.week_start}-${week.week_end}-${idx}`;
+                        const isExpanded = !!expandedImportedWeeks[weekKey];
+                        return (
+                          <>
+                            <button
+                              onClick={() => setExpandedImportedWeeks((prev) => ({ ...prev, [weekKey]: !isExpanded }))}
+                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                              style={{ backgroundColor: '#FF671F' }}
+                            >
+                              {isExpanded ? 'Hide' : 'View More'}
+                            </button>
+
+                            {isExpanded && (
+                              <div className="border-t mt-3 pt-3" style={{ borderColor: '#FFD7B5' }}>
+                                <div className="text-sm mb-3" style={{ color: '#8B7355' }}>
+                                  {week.product_count} products, {week.total_records} records • Produced: {week.total_produced} • Waste: {week.total_waste}
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                                  {week.products.map((product: any, pidx: number) => (
+                                    <div key={pidx} className="p-2 bg-gray-50 rounded">
+                                      <p className="font-medium" style={{ color: '#2D1810' }}>
+                                        {product.product_name}
+                                      </p>
+                                      <p style={{ color: '#8B7355' }} className="text-xs">
+                                        {product.days_recorded} days: {product.produced || 0} produced, {product.waste || 0} waste
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
