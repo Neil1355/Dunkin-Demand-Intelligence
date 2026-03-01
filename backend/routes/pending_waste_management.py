@@ -272,7 +272,7 @@ def approve_submission():
                         reviewed_by = %s,
                         reviewed_at = NOW()
                     WHERE id = %s
-                ''', (user['user_id'], submission_id))
+                ''', (user_id, submission_id))
                 
                 # Insert into daily_waste table (if it exists)
                 # Note: This assumes daily_waste table has these columns
@@ -391,7 +391,7 @@ def edit_and_save_submission():
                         reviewed_by = %s,
                         reviewed_at = NOW()
                     WHERE id = %s
-                ''', (donut_count, munchkin_count, other_count, notes, user['user_id'], submission_id))
+                ''', (donut_count, munchkin_count, other_count, notes, user_id, submission_id))
                 
                 # Insert into daily_waste table
                 try:
@@ -481,7 +481,7 @@ def discard_submission():
                         reviewed_at = NOW(),
                         notes = COALESCE(notes || E'\\n' || 'Discarded: ' || %s, 'Discarded: ' || %s)
                     WHERE id = %s
-                ''', (user['user_id'], reason, reason, submission_id))
+                ''', (user_id, reason, reason, submission_id))
                 
                 conn.commit()
                 

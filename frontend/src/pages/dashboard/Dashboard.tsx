@@ -224,6 +224,34 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     }
   }
 
+  async function handleEditSubmission(submission: any) {
+    const newDonutCount = prompt('Edit Donut Count:', String(submission.donut_count || 0));
+    const newMunchkinCount = prompt('Edit Munchkin Count:', String(submission.munchkin_count || 0));
+    const newOtherCount = prompt('Edit Other Count:', String(submission.other_count || 0));
+    const newNotes = prompt('Edit Notes:', submission.notes || '');
+
+    if (newDonutCount === null || newMunchkinCount === null) {
+      return; // User cancelled
+    }
+
+    try {
+      await apiFetch('/pending-waste/edit-and-save', {
+        method: 'POST',
+        body: JSON.stringify({
+          submission_id: submission.id,
+          donut_count: parseInt(newDonutCount) || 0,
+          munchkin_count: parseInt(newMunchkinCount) || 0,
+          other_count: parseInt(newOtherCount || '0') || 0,
+          notes: newNotes || ''
+        })
+      });
+      fetchPendingSubmissions();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Edit failed';
+      alert(errorMsg);
+    }
+  }
+
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -1058,6 +1086,13 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                               style={{ backgroundColor: '#2F9E44' }}
                             >
                               Approve
+                            </button>
+                            <button
+                              onClick={() => handleEditSubmission(submission)}
+                              className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                              style={{ backgroundColor: '#FF671F' }}
+                            >
+                              Edit & Save
                             </button>
                             <button
                               onClick={() => handleDiscardSubmission(submission.id)}
