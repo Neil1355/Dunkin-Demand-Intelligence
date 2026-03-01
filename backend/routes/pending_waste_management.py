@@ -286,8 +286,8 @@ def approve_submission():
                 ''', (submission_id,))
                 
                 items = cur.fetchall()
-                print(f"[APPROVE DEBUG] Found {len(items)} items to insert into daily_throwaway")
-                print(f"[APPROVE DEBUG] Store ID: {store_id}, Submission Date: {submission_date}")
+                print(f"[APPROVE DEBUG] Found {len(items)} items to insert into daily_throwaway", flush=True)
+                print(f"[APPROVE DEBUG] Store ID: {store_id}, Submission Date: {submission_date}", flush=True)
                 
                 # Insert each item into daily_throwaway table (per-product tracking)
                 cur.execute("SAVEPOINT pending_approve_daily_throwaway")
@@ -306,7 +306,7 @@ def approve_submission():
                             product_name = item[1]
                             waste_qty = item[3]
                         
-                        print(f"[APPROVE DEBUG] Processing: product_id={product_id}, name={product_name}, waste={waste_qty}")
+                        print(f"[APPROVE DEBUG] Processing: product_id={product_id}, name={product_name}, waste={waste_qty}", flush=True)
                         
                         # Only insert if we have a valid product_id (skip custom items without ID)
                         if product_id:
@@ -321,7 +321,7 @@ def approve_submission():
                             if existing:
                                 # Update existing record
                                 existing_waste = existing[1] if not isinstance(existing, dict) else existing['waste']
-                                print(f"[APPROVE DEBUG] Updating existing record: id={existing[0] if not isinstance(existing, dict) else existing['id']}, old_waste={existing_waste}, adding={waste_qty}")
+                                print(f"[APPROVE DEBUG] Updating existing record: id={existing[0] if not isinstance(existing, dict) else existing['id']}, old_waste={existing_waste}, adding={waste_qty}", flush=True)
                                 cur.execute('''
                                     UPDATE daily_throwaway
                                     SET waste = %s, updated_at = NOW()
@@ -330,7 +330,7 @@ def approve_submission():
                                 updated_count += 1
                             else:
                                 # Insert new record
-                                print(f"[APPROVE DEBUG] Inserting new record for product_id={product_id}, waste={waste_qty}")
+                                print(f"[APPROVE DEBUG] Inserting new record for product_id={product_id}, waste={waste_qty}", flush=True)
                                 cur.execute('''
                                     INSERT INTO daily_throwaway 
                                     (store_id, product_id, date, waste, source, produced)
@@ -338,22 +338,22 @@ def approve_submission():
                                 ''', (store_id, product_id, submission_date, waste_qty, 'pending_approval', 0))
                                 inserted_count += 1
                         else:
-                            print(f"[APPROVE DEBUG] Skipping custom item without product_id: {product_name}")
+                            print(f"[APPROVE DEBUG] Skipping custom item without product_id: {product_name}", flush=True)
                             skipped_count += 1
                     
-                    print(f"[APPROVE DEBUG] Summary: inserted={inserted_count}, updated={updated_count}, skipped={skipped_count}")
+                    print(f"[APPROVE DEBUG] Summary: inserted={inserted_count}, updated={updated_count}, skipped={skipped_count}", flush=True)
                     cur.execute("RELEASE SAVEPOINT pending_approve_daily_throwaway")
                 except Exception as insert_error:
-                    print(f"[APPROVE ERROR] Failed to insert into daily_throwaway: {insert_error}")
+                    print(f"[APPROVE ERROR] Failed to insert into daily_throwaway: {insert_error}", flush=True)
                     import traceback
                     traceback.print_exc()
                     cur.execute("ROLLBACK TO SAVEPOINT pending_approve_daily_throwaway")
                     cur.execute("RELEASE SAVEPOINT pending_approve_daily_throwaway")
-                    print(f"Warning: Could not insert into daily_throwaway: {insert_error}")
+                    print(f"Warning: Could not insert into daily_throwaway: {insert_error}", flush=True)
                     # Continue anyway - approval still recorded
                 
                 conn.commit()
-                print(f"[APPROVE DEBUG] Transaction committed successfully")
+                print(f"[APPROVE DEBUG] Transaction committed successfully", flush=True)
                 
                 return jsonify({
                     "success": True,
@@ -527,8 +527,8 @@ def edit_and_save_submission():
                     ''', (submission_id,))
                     
                     updated_items = cur.fetchall()
-                    print(f"[EDIT DEBUG] Found {len(updated_items)} items to insert into daily_throwaway")
-                    print(f"[EDIT DEBUG] Store ID: {store_id}, Submission Date: {submission_date}")
+                    print(f"[EDIT DEBUG] Found {len(updated_items)} items to insert into daily_throwaway", flush=True)
+                    print(f"[EDIT DEBUG] Store ID: {store_id}, Submission Date: {submission_date}", flush=True)
                     
                     inserted_count = 0
                     updated_count = 0
@@ -543,7 +543,7 @@ def edit_and_save_submission():
                             product_name = item[1]
                             waste_qty = item[2]
                         
-                        print(f"[EDIT DEBUG] Processing: product_id={product_id}, name={product_name}, waste={waste_qty}")
+                        print(f"[EDIT DEBUG] Processing: product_id={product_id}, name={product_name}, waste={waste_qty}", flush=True)
                         
                         # Check if record exists
                         cur.execute('''
@@ -556,7 +556,7 @@ def edit_and_save_submission():
                         if existing:
                             # Update existing record
                             existing_waste = existing[1] if not isinstance(existing, dict) else existing['waste']
-                            print(f"[EDIT DEBUG] Updating existing record: old_waste={existing_waste}, adding={waste_qty}")
+                            print(f"[EDIT DEBUG] Updating existing record: old_waste={existing_waste}, adding={waste_qty}", flush=True)
                             cur.execute('''
                                 UPDATE daily_throwaway
                                 SET waste = %s, updated_at = NOW()
@@ -565,7 +565,7 @@ def edit_and_save_submission():
                             updated_count += 1
                         else:
                             # Insert new record
-                            print(f"[EDIT DEBUG] Inserting new record for product_id={product_id}, waste={waste_qty}")
+                            print(f"[EDIT DEBUG] Inserting new record for product_id={product_id}, waste={waste_qty}", flush=True)
                             cur.execute('''
                                 INSERT INTO daily_throwaway 
                                 (store_id, product_id, date, waste, source, produced)
@@ -573,18 +573,18 @@ def edit_and_save_submission():
                             ''', (store_id, product_id, submission_date, waste_qty, 'pending_approval', 0))
                             inserted_count += 1
                     
-                    print(f"[EDIT DEBUG] Summary: inserted={inserted_count}, updated={updated_count}")
+                    print(f"[EDIT DEBUG] Summary: inserted={inserted_count}, updated={updated_count}", flush=True)
                     cur.execute("RELEASE SAVEPOINT pending_edit_daily_throwaway")
                 except Exception as insert_error:
-                    print(f"[EDIT ERROR] Failed to insert into daily_throwaway: {insert_error}")
+                    print(f"[EDIT ERROR] Failed to insert into daily_throwaway: {insert_error}", flush=True)
                     import traceback
                     traceback.print_exc()
                     cur.execute("ROLLBACK TO SAVEPOINT pending_edit_daily_throwaway")
                     cur.execute("RELEASE SAVEPOINT pending_edit_daily_throwaway")
-                    print(f"Warning: Could not insert into daily_throwaway: {insert_error}")
+                    print(f"Warning: Could not insert into daily_throwaway: {insert_error}", flush=True)
                 
                 conn.commit()
-                print(f"[EDIT DEBUG] Transaction committed successfully")
+                print(f"[EDIT DEBUG] Transaction committed successfully", flush=True)
                 
                 return jsonify({
                     "success": True,
