@@ -521,20 +521,29 @@ def edit_and_save_submission():
                 try:
                     # Get updated items to insert into daily_throwaway
                     cur.execute('''
-                        SELECT product_id, waste_quantity
+                        SELECT product_id, product_name, waste_quantity
                         FROM pending_waste_items
                         WHERE submission_id = %s AND product_id IS NOT NULL
                     ''', (submission_id,))
                     
                     updated_items = cur.fetchall()
+                    print(f"[EDIT DEBUG] Found {len(updated_items)} items to insert into daily_throwaway")
+                    print(f"[EDIT DEBUG] Store ID: {store_id}, Submission Date: {submission_date}")
+                    
+                    inserted_count = 0
+                    updated_count = 0
                     
                     for item in updated_items:
                         if isinstance(item, dict):
                             product_id = item['product_id']
+                            product_name = item['product_name']
                             waste_qty = item['waste_quantity']
                         else:
                             product_id = item[0]
-                            waste_qty = item[1]
+                            product_name = item[1]
+                            waste_qty = item[2]
+                        
+                        print(f"[EDIT DEBUG] Processing: product_id={product_id}, name={product_name}, waste={waste_qty}")
                         
                         # Check if record exists
                         cur.execute('''
@@ -547,26 +556,35 @@ def edit_and_save_submission():
                         if existing:
                             # Update existing record
                             existing_waste = existing[1] if not isinstance(existing, dict) else existing['waste']
+                            print(f"[EDIT DEBUG] Updating existing record: old_waste={existing_waste}, adding={waste_qty}")
                             cur.execute('''
                                 UPDATE daily_throwaway
                                 SET waste = %s, updated_at = NOW()
                                 WHERE store_id = %s AND product_id = %s AND date = %s
                             ''', (existing_waste + waste_qty, store_id, product_id, submission_date))
+                            updated_count += 1
                         else:
                             # Insert new record
+                            print(f"[EDIT DEBUG] Inserting new record for product_id={product_id}, waste={waste_qty}")
                             cur.execute('''
                                 INSERT INTO daily_throwaway 
                                 (store_id, product_id, date, waste, source, produced)
                                 VALUES (%s, %s, %s, %s, %s, %s)
                             ''', (store_id, product_id, submission_date, waste_qty, 'pending_approval', 0))
+                            inserted_count += 1
                     
+                    print(f"[EDIT DEBUG] Summary: inserted={inserted_count}, updated={updated_count}")
                     cur.execute("RELEASE SAVEPOINT pending_edit_daily_throwaway")
                 except Exception as insert_error:
+                    print(f"[EDIT ERROR] Failed to insert into daily_throwaway: {insert_error}")
+                    import traceback
+                    traceback.print_exc()
                     cur.execute("ROLLBACK TO SAVEPOINT pending_edit_daily_throwaway")
                     cur.execute("RELEASE SAVEPOINT pending_edit_daily_throwaway")
                     print(f"Warning: Could not insert into daily_throwaway: {insert_error}")
                 
                 conn.commit()
+                print(f"[EDIT DEBUG] Transaction committed successfully")
                 
                 return jsonify({
                     "success": True,
