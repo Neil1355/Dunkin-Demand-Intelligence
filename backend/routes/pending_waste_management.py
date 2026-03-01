@@ -2,7 +2,7 @@
 Pending Waste Submissions Management Routes (Manager - Auth Required)
 Allows managers to view, approve, edit, or discard employee waste submissions
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 import traceback
 from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
@@ -22,7 +22,7 @@ def get_pending_submissions():
     - date (optional): Filter by submission date (YYYY-MM-DD)
     """
     try:
-        user = request.user  # type: ignore # From JWT decorator
+        user_id = g.user_id  # Set by @require_auth decorator
         store_id = request.args.get('store_id', type=int)
         status = request.args.get('status', 'pending')
         submission_date = request.args.get('date')
@@ -217,7 +217,7 @@ def approve_submission():
     }
     """
     try:
-        user = request.user  # type: ignore
+        user_id = g.user_id  # Set by @require_auth decorator
         data = request.json
         
         if not data:
@@ -326,7 +326,7 @@ def edit_and_save_submission():
     }
     """
     try:
-        user = request.user  # type: ignore
+        user_id = g.user_id  # Set by @require_auth decorator
         data = request.json
         
         if not data:
@@ -441,7 +441,7 @@ def discard_submission():
     }
     """
     try:
-        user = request.user  # type: ignore
+        user_id = g.user_id  # Set by @require_auth decorator
         data = request.json
         
         if not data:
