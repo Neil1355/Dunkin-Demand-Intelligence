@@ -28,9 +28,9 @@ export default function App() {
     'Strawberry Frosted'
   ]);
   const [munchkinTypes, setMunchkinTypes] = useState<string[]>([
-    'Glazed Munchkin', 
-    'Chocolate Munchkin', 
-    'Jelly Munchkin'
+    'Glazed Munchkins', 
+    'Chocolate Glazed Munchkins', 
+    'Glazed Old Fashioned Munchkins'
   ]);
 
   useEffect(() => {

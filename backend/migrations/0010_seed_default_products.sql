@@ -22,9 +22,9 @@ ON CONFLICT (product_name) DO NOTHING;
 
 -- Insert Munchkins
 INSERT INTO products (product_name, product_type, is_active) VALUES
-('Glazed Munchkin', 'munchkin', true),
-('Chocolate Glazed Munchkin', 'munchkin', true),
-('Old Fashioned Munchkin', 'munchkin', true)
+('Glazed Munchkins', 'munchkin', true),
+('Chocolate Glazed Munchkins', 'munchkin', true),
+('Glazed Old Fashioned Munchkins', 'munchkin', true)
 ON CONFLICT (product_name) DO NOTHING;
 
 -- Insert Other

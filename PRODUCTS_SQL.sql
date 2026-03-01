@@ -52,13 +52,9 @@ INSERT INTO products (product_name, product_type, is_active) VALUES
 ('Coffee Cake', 'muffin', true),
 ('Corn', 'muffin', true),
 -- Munchkins
-('Chocolate Glazed Munchkin', 'munchkin', true),
-('Chocolate Munchkin', 'munchkin', true),
-('Glazed Munchkin', 'munchkin', true),
-('Munchkins', 'munchkin', true),
-('Old Fashioned Munch', 'munchkin', true),
-('Old Fashioned Munchkin', 'munchkin', true),
-('Wicked Munchkin', 'munchkin', true),
+('Glazed Munchkins', 'munchkin', true),
+('Chocolate Glazed Munchkins', 'munchkin', true),
+('Glazed Old Fashioned Munchkins', 'munchkin', true),
 -- Other
 ('Golden Chocolate', 'other', true),
 ('Holiday Lights', 'other', true),
