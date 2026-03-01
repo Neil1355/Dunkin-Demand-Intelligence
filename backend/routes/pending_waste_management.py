@@ -218,6 +218,10 @@ def approve_submission():
     """
     try:
         user_id = g.user_id  # Set by @require_auth decorator
+        try:
+            reviewer_id = int(user_id) if user_id is not None else None
+        except (ValueError, TypeError):
+            reviewer_id = None
         data = request.json
         
         if not data:
@@ -272,11 +276,12 @@ def approve_submission():
                         reviewed_by = %s,
                         reviewed_at = NOW()
                     WHERE id = %s
-                ''', (user_id, submission_id))
+                ''', (reviewer_id, submission_id))
                 
                 # Insert into daily_waste table (if it exists)
                 # Note: This assumes daily_waste table has these columns
                 # Adjust based on your actual schema
+                cur.execute("SAVEPOINT pending_approve_daily_waste")
                 try:
                     cur.execute('''
                         INSERT INTO daily_waste 
@@ -290,7 +295,10 @@ def approve_submission():
                             notes = COALESCE(daily_waste.notes || E'\\n' || EXCLUDED.notes, EXCLUDED.notes)
                     ''', (store_id, submission_date, donut_count, munchkin_count, other_count, 
                           f"Submitted by: {submission[1] if not isinstance(submission, dict) else submission['submitter_name']}"))
+                    cur.execute("RELEASE SAVEPOINT pending_approve_daily_waste")
                 except Exception as insert_error:
+                    cur.execute("ROLLBACK TO SAVEPOINT pending_approve_daily_waste")
+                    cur.execute("RELEASE SAVEPOINT pending_approve_daily_waste")
                     print(f"Warning: Could not insert into daily_waste: {insert_error}")
                     # Continue anyway - approval still recorded
                 
@@ -307,6 +315,7 @@ def approve_submission():
             
     except Exception as e:
         print(f"Error approving submission: {e}")
+        traceback.print_exc()
         return jsonify({"error": "Failed to approve submission"}), 500
 
 
@@ -327,6 +336,10 @@ def edit_and_save_submission():
     """
     try:
         user_id = g.user_id  # Set by @require_auth decorator
+        try:
+            reviewer_id = int(user_id) if user_id is not None else None
+        except (ValueError, TypeError):
+            reviewer_id = None
         data = request.json
         
         if not data:
@@ -337,20 +350,58 @@ def edit_and_save_submission():
         munchkin_count = data.get('munchkin_count')
         other_count = data.get('other_count', 0)
         notes = data.get('notes', '').strip()
+        items = data.get('items')
         
         if not submission_id:
             return jsonify({"error": "submission_id is required"}), 400
         
-        # Validate counts
-        try:
-            donut_count = int(donut_count) if donut_count is not None else 0
-            munchkin_count = int(munchkin_count) if munchkin_count is not None else 0
-            other_count = int(other_count) if other_count else 0
-            
-            if donut_count < 0 or munchkin_count < 0 or other_count < 0:
-                return jsonify({"error": "Counts cannot be negative"}), 400
-        except (ValueError, TypeError):
-            return jsonify({"error": "Invalid count values"}), 400
+        # Validate / derive counts
+        validated_items = []
+        if isinstance(items, list) and len(items) > 0:
+            donut_count = 0
+            munchkin_count = 0
+            other_count = 0
+
+            for item in items:
+                if not isinstance(item, dict):
+                    return jsonify({"error": "Invalid items payload"}), 400
+
+                product_name = (item.get('product_name') or '').strip()
+                product_type = (item.get('product_type') or 'other').strip().lower()
+                product_id = item.get('product_id')
+
+                try:
+                    waste_quantity = int(item.get('waste_quantity', 0))
+                except (ValueError, TypeError):
+                    return jsonify({"error": "Invalid item quantity"}), 400
+
+                if waste_quantity < 0:
+                    return jsonify({"error": "Item quantities cannot be negative"}), 400
+
+                if product_type == 'donut':
+                    donut_count += waste_quantity
+                elif product_type == 'munchkin':
+                    munchkin_count += waste_quantity
+                else:
+                    other_count += waste_quantity
+
+                if product_name:
+                    validated_items.append({
+                        'product_id': product_id,
+                        'product_name': product_name,
+                        'product_type': product_type,
+                        'waste_quantity': waste_quantity
+                    })
+        else:
+            try:
+                donut_count = int(donut_count) if donut_count is not None else 0
+                munchkin_count = int(munchkin_count) if munchkin_count is not None else 0
+                other_count = int(other_count) if other_count else 0
+
+                if donut_count < 0 or munchkin_count < 0 or other_count < 0:
+                    return jsonify({"error": "Counts cannot be negative"}), 400
+            except (ValueError, TypeError):
+                return jsonify({"error": "Invalid count values"}), 400
         
         conn = get_connection()
         
@@ -391,9 +442,31 @@ def edit_and_save_submission():
                         reviewed_by = %s,
                         reviewed_at = NOW()
                     WHERE id = %s
-                ''', (donut_count, munchkin_count, other_count, notes, user_id, submission_id))
+                ''', (donut_count, munchkin_count, other_count, notes, reviewer_id, submission_id))
+
+                # Update item-level details when provided
+                if isinstance(items, list):
+                    cur.execute('''
+                        DELETE FROM pending_waste_items
+                        WHERE submission_id = %s
+                    ''', (submission_id,))
+
+                    if validated_items:
+                        for item in validated_items:
+                            cur.execute('''
+                                INSERT INTO pending_waste_items
+                                (submission_id, product_id, product_name, product_type, waste_quantity)
+                                VALUES (%s, %s, %s, %s, %s)
+                            ''', (
+                                submission_id,
+                                item['product_id'],
+                                item['product_name'],
+                                item['product_type'],
+                                item['waste_quantity']
+                            ))
                 
                 # Insert into daily_waste table
+                cur.execute("SAVEPOINT pending_edit_daily_waste")
                 try:
                     cur.execute('''
                         INSERT INTO daily_waste 
@@ -406,7 +479,10 @@ def edit_and_save_submission():
                             other_waste = daily_waste.other_waste + EXCLUDED.other_waste,
                             notes = COALESCE(daily_waste.notes || E'\\n' || EXCLUDED.notes, EXCLUDED.notes)
                     ''', (store_id, submission_date, donut_count, munchkin_count, other_count, notes))
+                    cur.execute("RELEASE SAVEPOINT pending_edit_daily_waste")
                 except Exception as insert_error:
+                    cur.execute("ROLLBACK TO SAVEPOINT pending_edit_daily_waste")
+                    cur.execute("RELEASE SAVEPOINT pending_edit_daily_waste")
                     print(f"Warning: Could not insert into daily_waste: {insert_error}")
                 
                 conn.commit()
@@ -425,6 +501,7 @@ def edit_and_save_submission():
             
     except Exception as e:
         print(f"Error editing submission: {e}")
+        traceback.print_exc()
         return jsonify({"error": "Failed to edit submission"}), 500
 
 
@@ -442,6 +519,10 @@ def discard_submission():
     """
     try:
         user_id = g.user_id  # Set by @require_auth decorator
+        try:
+            reviewer_id = int(user_id) if user_id is not None else None
+        except (ValueError, TypeError):
+            reviewer_id = None
         data = request.json
         
         if not data:
@@ -481,7 +562,7 @@ def discard_submission():
                         reviewed_at = NOW(),
                         notes = COALESCE(notes || E'\\n' || 'Discarded: ' || %s, 'Discarded: ' || %s)
                     WHERE id = %s
-                ''', (user_id, reason, reason, submission_id))
+                ''', (reviewer_id, reason, reason, submission_id))
                 
                 conn.commit()
                 
@@ -496,4 +577,5 @@ def discard_submission():
             
     except Exception as e:
         print(f"Error discarding submission: {e}")
+        traceback.print_exc()
         return jsonify({"error": "Failed to discard submission"}), 500

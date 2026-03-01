@@ -53,12 +53,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingError, setPendingError] = useState('');
   const [editingSubmissionId, setEditingSubmissionId] = useState<number | null>(null);
-  const [editSubmissionValues, setEditSubmissionValues] = useState<{
-    donut_count: number;
-    munchkin_count: number;
-    other_count: number;
-    notes: string;
-  }>({ donut_count: 0, munchkin_count: 0, other_count: 0, notes: '' });
+  const [editSubmissionItems, setEditSubmissionItems] = useState<any[]>([]);
+  const [editSubmissionNotes, setEditSubmissionNotes] = useState('');
   const [expandedImportedWeeks, setExpandedImportedWeeks] = useState<Record<string, boolean>>({});
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
@@ -213,6 +209,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
       if (editingSubmissionId === submissionId) {
         setEditingSubmissionId(null);
+        setEditSubmissionItems([]);
+        setEditSubmissionNotes('');
       }
       fetchPendingSubmissions();
     } catch (err) {
@@ -232,6 +230,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
       if (editingSubmissionId === submissionId) {
         setEditingSubmissionId(null);
+        setEditSubmissionItems([]);
+        setEditSubmissionNotes('');
       }
       fetchPendingSubmissions();
     } catch (err) {
@@ -242,23 +242,48 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
   function startEditSubmission(submission: any) {
     setEditingSubmissionId(submission.id);
-    setEditSubmissionValues({
-      donut_count: Number(submission.donut_count) || 0,
-      munchkin_count: Number(submission.munchkin_count) || 0,
-      other_count: Number(submission.other_count) || 0,
-      notes: submission.notes || ''
-    });
+    const originalItems = Array.isArray(submission.items) ? submission.items : [];
+
+    if (originalItems.length > 0) {
+      setEditSubmissionItems(
+        originalItems.map((item: any) => ({
+          product_id: item.product_id ?? null,
+          product_name: item.product_name || 'Unnamed Item',
+          product_type: item.product_type || 'other',
+          waste_quantity: Number(item.waste_quantity) || 0
+        }))
+      );
+    } else {
+      const fallbackItems: any[] = [];
+      if ((Number(submission.donut_count) || 0) > 0) {
+        fallbackItems.push({ product_id: null, product_name: 'Donuts', product_type: 'donut', waste_quantity: Number(submission.donut_count) || 0 });
+      }
+      if ((Number(submission.munchkin_count) || 0) > 0) {
+        fallbackItems.push({ product_id: null, product_name: 'Munchkins', product_type: 'munchkin', waste_quantity: Number(submission.munchkin_count) || 0 });
+      }
+      if ((Number(submission.other_count) || 0) > 0) {
+        fallbackItems.push({ product_id: null, product_name: 'Other', product_type: 'other', waste_quantity: Number(submission.other_count) || 0 });
+      }
+      setEditSubmissionItems(fallbackItems);
+    }
+
+    setEditSubmissionNotes(submission.notes || '');
   }
 
   function cancelEditSubmission() {
     setEditingSubmissionId(null);
+    setEditSubmissionItems([]);
+    setEditSubmissionNotes('');
   }
 
-  function updateEditCounter(field: 'donut_count' | 'munchkin_count' | 'other_count', delta: number) {
-    setEditSubmissionValues((prev) => ({
-      ...prev,
-      [field]: Math.max(0, (prev[field] || 0) + delta)
-    }));
+  function updateEditItemQuantity(index: number, value: number) {
+    setEditSubmissionItems((prev) =>
+      prev.map((item, itemIndex) =>
+        itemIndex === index
+          ? { ...item, waste_quantity: Math.max(0, Number.isFinite(value) ? value : 0) }
+          : item
+      )
+    );
   }
 
   async function saveEditSubmission(submissionId: number) {
@@ -267,14 +292,14 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         method: 'POST',
         body: JSON.stringify({
           submission_id: submissionId,
-          donut_count: editSubmissionValues.donut_count,
-          munchkin_count: editSubmissionValues.munchkin_count,
-          other_count: editSubmissionValues.other_count,
-          notes: editSubmissionValues.notes || ''
+          items: editSubmissionItems,
+          notes: editSubmissionNotes || ''
         })
       });
       setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
       setEditingSubmissionId(null);
+      setEditSubmissionItems([]);
+      setEditSubmissionNotes('');
       fetchPendingSubmissions();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Edit failed';
@@ -1111,43 +1136,30 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
                           {editingSubmissionId === submission.id ? (
                             <div className="mt-4 space-y-4">
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                {[
-                                  { key: 'donut_count', label: 'Donuts', color: '#FF671F' },
-                                  { key: 'munchkin_count', label: 'Munchkins', color: '#DA1884' },
-                                  { key: 'other_count', label: 'Other', color: '#8B7355' }
-                                ].map((field) => {
-                                  const value = editSubmissionValues[field.key as 'donut_count' | 'munchkin_count' | 'other_count'];
-                                  return (
-                                    <div key={field.key} className="rounded-xl p-3" style={{ backgroundColor: '#FFFFFF' }}>
-                                      <div className="text-sm mb-2" style={{ color: '#8B7355' }}>{field.label}</div>
-                                      <div className="flex items-center justify-between">
-                                        <button
-                                          onClick={() => updateEditCounter(field.key as 'donut_count' | 'munchkin_count' | 'other_count', -1)}
-                                          className="w-9 h-9 rounded-full text-white"
-                                          style={{ backgroundColor: field.color }}
-                                        >
-                                          -
-                                        </button>
-                                        <div className="text-lg font-semibold" style={{ color: field.color }}>{value}</div>
-                                        <button
-                                          onClick={() => updateEditCounter(field.key as 'donut_count' | 'munchkin_count' | 'other_count', 1)}
-                                          className="w-9 h-9 rounded-full text-white"
-                                          style={{ backgroundColor: field.color }}
-                                        >
-                                          +
-                                        </button>
-                                      </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {editSubmissionItems.map((item: any, idx: number) => (
+                                  <div key={`${submission.id}-edit-item-${idx}`} className="flex items-center justify-between rounded-2xl p-4" style={{ backgroundColor: '#FFFFFF' }}>
+                                    <div>
+                                      <div style={{ color: '#8B7355' }}>{item.product_name}</div>
+                                      <div className="text-xs" style={{ color: '#8B7355' }}>{item.product_type || 'other'}</div>
                                     </div>
-                                  );
-                                })}
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={item.waste_quantity}
+                                      onChange={(e) => updateEditItemQuantity(idx, parseInt(e.target.value, 10) || 0)}
+                                      className="w-28 px-3 py-2 rounded-full border-2 text-center focus:outline-none"
+                                      style={{ borderColor: '#FF671F', color: '#2D1810' }}
+                                    />
+                                  </div>
+                                ))}
                               </div>
 
                               <div>
                                 <label className="text-sm" style={{ color: '#8B7355' }}>Notes</label>
                                 <textarea
-                                  value={editSubmissionValues.notes}
-                                  onChange={(e) => setEditSubmissionValues((prev) => ({ ...prev, notes: e.target.value }))}
+                                  value={editSubmissionNotes}
+                                  onChange={(e) => setEditSubmissionNotes(e.target.value)}
                                   className="mt-2 w-full px-3 py-2 rounded-xl border-2 focus:outline-none"
                                   style={{ borderColor: '#FFD7B5', color: '#8B7355' }}
                                   rows={2}
