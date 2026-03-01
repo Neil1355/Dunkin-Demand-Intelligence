@@ -103,7 +103,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     try {
       setQuickStatsLoading(true);
       const result = await apiFetch(`/dashboard/quick-stats?store_id=${storeId}`);
-      setQuickStatsData(result.stats_7d || {});
+      setQuickStatsData({
+        ...(result.stats_7d || {}),
+        top_waste_products: result.top_waste_products || []
+      });
     } catch (err) {
       console.error("Failed to load quick stats:", err);
       setQuickStatsData(null);
