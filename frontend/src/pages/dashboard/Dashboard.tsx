@@ -55,6 +55,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [editingSubmissionId, setEditingSubmissionId] = useState<number | null>(null);
   const [editSubmissionItems, setEditSubmissionItems] = useState<any[]>([]);
   const [editSubmissionNotes, setEditSubmissionNotes] = useState('');
+  const [wasteDirectoryProducts, setWasteDirectoryProducts] = useState<any[]>([]);
+  const [selectedAddProductId, setSelectedAddProductId] = useState('');
   const [expandedImportedWeeks, setExpandedImportedWeeks] = useState<Record<string, boolean>>({});
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
@@ -181,6 +183,33 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     }
   }
 
+  async function fetchWasteDirectoryProducts() {
+    const fallbackProducts = [
+      ...donutTypes.map((name, index) => ({
+        product_id: `donut-${index}-${name}`,
+        product_name: name,
+        product_type: 'donut'
+      })),
+      ...munchkinTypes.map((name, index) => ({
+        product_id: `munchkin-${index}-${name}`,
+        product_name: name,
+        product_type: 'munchkin'
+      }))
+    ];
+
+    try {
+      const result = await apiFetch('/anonymous-waste/products');
+      if (Array.isArray(result) && result.length > 0) {
+        setWasteDirectoryProducts(result);
+      } else {
+        setWasteDirectoryProducts(fallbackProducts);
+      }
+    } catch (err) {
+      console.error('Failed to load waste directory products:', err);
+      setWasteDirectoryProducts(fallbackProducts);
+    }
+  }
+
   async function fetchPendingSubmissions() {
     try {
       setPendingLoading(true);
@@ -242,6 +271,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
   function startEditSubmission(submission: any) {
     setEditingSubmissionId(submission.id);
+    setSelectedAddProductId('');
     const originalItems = Array.isArray(submission.items) ? submission.items : [];
 
     if (originalItems.length > 0) {
@@ -274,16 +304,65 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     setEditingSubmissionId(null);
     setEditSubmissionItems([]);
     setEditSubmissionNotes('');
+    setSelectedAddProductId('');
   }
 
-  function updateEditItemQuantity(index: number, value: number) {
+  function adjustEditItemQuantity(index: number, delta: number) {
     setEditSubmissionItems((prev) =>
       prev.map((item, itemIndex) =>
         itemIndex === index
-          ? { ...item, waste_quantity: Math.max(0, Number.isFinite(value) ? value : 0) }
+          ? { ...item, waste_quantity: Math.max(0, (Number(item.waste_quantity) || 0) + delta) }
           : item
       )
     );
+  }
+
+  function addDirectoryItemToEdit() {
+    if (!selectedAddProductId) {
+      return;
+    }
+
+    const selectedProduct = wasteDirectoryProducts.find(
+      (product: any) => String(product.product_id) === selectedAddProductId
+    );
+
+    if (!selectedProduct) {
+      return;
+    }
+
+    setEditSubmissionItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item: any) =>
+          item.product_id === selectedProduct.product_id ||
+          (item.product_name === selectedProduct.product_name && item.product_type === selectedProduct.product_type)
+      );
+
+      if (existingIndex >= 0) {
+        return prev.map((item: any, idx: number) =>
+          idx === existingIndex
+            ? { ...item, waste_quantity: (Number(item.waste_quantity) || 0) + 1 }
+            : item
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          product_id: selectedProduct.product_id,
+          product_name: selectedProduct.product_name,
+          product_type: selectedProduct.product_type || 'other',
+          waste_quantity: 1
+        }
+      ];
+    });
+
+    setSelectedAddProductId('');
+  }
+
+  function getItemAccentColor(productType?: string) {
+    if (productType === 'donut') return '#FF671F';
+    if (productType === 'munchkin') return '#DA1884';
+    return '#8B7355';
   }
 
   async function saveEditSubmission(submissionId: number) {
@@ -292,7 +371,12 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         method: 'POST',
         body: JSON.stringify({
           submission_id: submissionId,
-          items: editSubmissionItems,
+          items: editSubmissionItems.map((item: any) => ({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_type: item.product_type,
+            waste_quantity: Math.max(0, Number(item.waste_quantity) || 0)
+          })),
           notes: editSubmissionNotes || ''
         })
       });
@@ -357,6 +441,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchProductionTrend();
     fetchWasteTrend();
     fetchImportHistory();
+    fetchWasteDirectoryProducts();
     fetchPendingSubmissions();
   }, []);
 
@@ -1137,22 +1222,62 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                           {editingSubmissionId === submission.id ? (
                             <div className="mt-4 space-y-4">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {editSubmissionItems.map((item: any, idx: number) => (
-                                  <div key={`${submission.id}-edit-item-${idx}`} className="flex items-center justify-between rounded-2xl p-4" style={{ backgroundColor: '#FFFFFF' }}>
-                                    <div>
-                                      <div style={{ color: '#8B7355' }}>{item.product_name}</div>
-                                      <div className="text-xs" style={{ color: '#8B7355' }}>{item.product_type || 'other'}</div>
+                                {editSubmissionItems.map((item: any, idx: number) => {
+                                  const accentColor = getItemAccentColor(item.product_type);
+                                  return (
+                                    <div key={`${submission.id}-edit-item-${idx}`} className="flex items-center justify-between rounded-2xl p-4" style={{ backgroundColor: '#FFFFFF' }}>
+                                      <div>
+                                        <div style={{ color: '#8B7355' }}>{item.product_name}</div>
+                                        <div className="text-xs" style={{ color: '#8B7355' }}>{item.product_type || 'other'}</div>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <button
+                                          onClick={() => adjustEditItemQuantity(idx, -1)}
+                                          className="w-10 h-10 rounded-full text-white"
+                                          style={{ backgroundColor: accentColor }}
+                                        >
+                                          -
+                                        </button>
+                                        <div className="min-w-[36px] text-center text-lg font-semibold" style={{ color: accentColor }}>
+                                          {item.waste_quantity}
+                                        </div>
+                                        <button
+                                          onClick={() => adjustEditItemQuantity(idx, 1)}
+                                          className="w-10 h-10 rounded-full text-white"
+                                          style={{ backgroundColor: accentColor }}
+                                        >
+                                          +
+                                        </button>
+                                      </div>
                                     </div>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      value={item.waste_quantity}
-                                      onChange={(e) => updateEditItemQuantity(idx, parseInt(e.target.value, 10) || 0)}
-                                      className="w-28 px-3 py-2 rounded-full border-2 text-center focus:outline-none"
-                                      style={{ borderColor: '#FF671F', color: '#2D1810' }}
-                                    />
-                                  </div>
-                                ))}
+                                  );
+                                })}
+                              </div>
+
+                              <div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFFFF' }}>
+                                <div className="text-sm mb-2" style={{ color: '#8B7355' }}>Add More from Directory</div>
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                  <select
+                                    value={selectedAddProductId}
+                                    onChange={(e) => setSelectedAddProductId(e.target.value)}
+                                    className="flex-1 px-3 py-2 rounded-full border-2 focus:outline-none"
+                                    style={{ borderColor: '#FFD7B5', color: '#8B7355', backgroundColor: '#FFFFFF' }}
+                                  >
+                                    <option value="">Select product...</option>
+                                    {wasteDirectoryProducts.map((product: any) => (
+                                      <option key={String(product.product_id)} value={String(product.product_id)}>
+                                        {product.product_name} ({product.product_type || 'other'})
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={addDirectoryItemToEdit}
+                                    className="px-4 py-2 rounded-full text-white transition-all hover:scale-105"
+                                    style={{ backgroundColor: '#FF671F' }}
+                                  >
+                                    Add More
+                                  </button>
+                                </div>
                               </div>
 
                               <div>
