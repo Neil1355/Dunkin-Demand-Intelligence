@@ -550,7 +550,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       const weekStart = sunday.toISOString().split('T')[0];
 
       // Call backend export endpoint
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence-landing-page.onrender.com/api/v1';
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence.onrender.com/api/v1';
       const url = `${baseUrl}/throwaway/export?store_id=${storeId}&week_start=${weekStart}`;
       
       // Fetch first to check for errors
