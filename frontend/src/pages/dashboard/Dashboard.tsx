@@ -367,7 +367,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
   async function saveEditSubmission(submissionId: number) {
     try {
-      await apiFetch('/pending-waste/edit-and-save', {
+      const response = await apiFetch('/pending-waste/edit-and-save', {
         method: 'POST',
         body: JSON.stringify({
           submission_id: submissionId,
@@ -384,10 +384,12 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setEditingSubmissionId(null);
       setEditSubmissionItems([]);
       setEditSubmissionNotes('');
+      // Show success toast
+      alert('✅ Submission edited and saved to daily waste!');
       fetchPendingSubmissions();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Edit failed';
-      alert(errorMsg);
+      alert(`❌ ${errorMsg}`);
     }
   }
 

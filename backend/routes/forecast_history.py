@@ -15,16 +15,22 @@ def list_history():
             if store_id:
                 # Filter by store_id and recent days, include approved pending waste
                 cur.execute('''
-                    SELECT * FROM forecast_history
+                    SELECT store_id, product_id, forecast_date, target_date, 
+                           predicted_quantity, model_version, created_at, status,
+                           manager_override_quantity, confidence, notes, expectation,
+                           approved_by, approved_at, final_quantity,
+                           context_expectation, context_multiplier, adjusted_quantity,
+                           actual_sold, forecast_error, error_pct
+                    FROM forecast_history
                     WHERE store_id = %s
                       AND target_date >= CURRENT_DATE - INTERVAL '%s days'
                     UNION ALL
-                    SELECT NULL as forecast_history_id, pws.store_id, pwi.product_id, 
-                           NULL as forecast_date, pws.submission_date as target_date,
-                           NULL as predicted_quantity, NULL as model_version, NULL as created_at,
+                    SELECT pws.store_id, pwi.product_id, NULL as forecast_date, 
+                           pws.submission_date as target_date, 
+                           NULL as predicted_quantity, NULL as model_version, pws.submitted_at as created_at,
                            'approved' as status, NULL as manager_override_quantity,
-                           NULL as confidence, NULL as notes, NULL as expectation,
-                           NULL as approved_by, pws.reviewed_at as approved_at,
+                           NULL as confidence, pws.notes as notes, NULL as expectation,
+                           pws.reviewed_by as approved_by, pws.reviewed_at as approved_at,
                            pwi.waste_quantity as final_quantity,
                            NULL as context_expectation, NULL as context_multiplier,
                            NULL as adjusted_quantity, NULL as actual_sold,
