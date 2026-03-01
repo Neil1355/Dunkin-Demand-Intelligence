@@ -31,8 +31,21 @@ def daily_snapshot():
                AND ws.waste_date = fh.target_date
             WHERE fh.store_id = %s
               AND fh.target_date = %s
-            ORDER BY p.product_name;
-        """, (store_id, target_date))
+            UNION ALL
+            SELECT
+                pwi.product_name,
+                NULL AS predicted_quantity,
+                NULL AS final_quantity,
+                NULL AS actual_sold,
+                pwi.waste_quantity,
+                NULL AS error_pct
+            FROM pending_waste_items pwi
+            JOIN pending_waste_submissions pws ON pws.id = pwi.submission_id
+            WHERE pws.store_id = %s
+              AND pws.submission_date = %s
+              AND pws.status IN ('approved', 'edited')
+            ORDER BY product_name;
+        """, (store_id, target_date, store_id, target_date))
 
         rows = cur.fetchall()
         cur.close()
