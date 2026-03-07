@@ -98,6 +98,10 @@ def upload_throwaways():
 
             # Read AM/PM values
             values = df.iloc[row_idx, cols].fillna(0).tolist()
+            
+            # Debug: Log first product's values to verify Excel parsing
+            if row_idx == start_row:
+                print(f"[DEBUG] First product '{product_name}' raw values from Excel: {values}")
 
             # Auto-add new products (seasonal items)
             if product_key not in product_map:
@@ -138,6 +142,12 @@ def upload_throwaways():
                 
                 produced = safe_int(values[am_index])
                 waste = safe_int(values[pm_index])
+                
+                # Debug: Log first day of first product
+                if row_idx == start_row and day_index == 0:
+                    print(f"[DEBUG] First day parsing: am_index={am_index}, pm_index={pm_index}")
+                    print(f"[DEBUG] Raw values: AM={values[am_index]}, PM={values[pm_index]}")
+                    print(f"[DEBUG] Parsed: produced={produced}, waste={waste}")
 
                 # Skip if both are zero
                 if produced == 0 and waste == 0:

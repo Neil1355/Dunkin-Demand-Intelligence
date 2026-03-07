@@ -45,24 +45,20 @@ def export_throwaway():
                 cur.close()
                 return jsonify({"error": "No products found. Please add products first."}), 404
 
-            # Fetch production and waste data
+            # Fetch production and waste data from daily_throwaway
             cur.execute("""
                 SELECT 
                     p.product_name,
-                    dp.date,
-                    COALESCE(dp.quantity, 0) AS produced,
+                    dt.date,
+                    COALESCE(dt.produced, 0) AS produced,
                     COALESCE(dt.waste, 0) AS waste
                 FROM products p
-                LEFT JOIN daily_production dp ON p.product_id = dp.product_id
-                    AND dp.store_id = %s
-                    AND dp.date BETWEEN %s AND %s
                 LEFT JOIN daily_throwaway dt ON p.product_id = dt.product_id
                     AND dt.store_id = %s
                     AND dt.date BETWEEN %s AND %s
-                    AND dp.date = dt.date
                 WHERE p.is_active = TRUE
-                ORDER BY p.product_type, p.product_name, dp.date
-            """, (store_id, dates[0], dates[-1], store_id, dates[0], dates[-1]))
+                ORDER BY p.product_type, p.product_name, dt.date
+            """, (store_id, dates[0], dates[-1]))
 
             rows = cur.fetchall()
             cur.close()
