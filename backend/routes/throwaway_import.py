@@ -105,6 +105,8 @@ def upload_throwaways():
                 cur.execute("""
                     INSERT INTO products (product_name, product_type, is_active)
                     VALUES (%s, 'other', TRUE)
+                    ON CONFLICT (product_name) DO UPDATE
+                    SET is_active = TRUE
                     RETURNING product_id;
                 """, (product_name,))
 
