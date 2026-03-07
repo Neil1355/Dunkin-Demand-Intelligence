@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 import pandas as pd
+import psycopg2
 from datetime import timedelta, datetime
 from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
@@ -102,16 +103,27 @@ def upload_throwaways():
             if product_key not in product_map:
                 print(f"[AUTO-ADD] New product detected: {product_name}")
 
-                cur.execute("""
-                    INSERT INTO products (product_name, product_type, is_active)
-                    VALUES (%s, 'other', TRUE)
-                    ON CONFLICT (product_name) DO UPDATE
-                    SET is_active = TRUE
-                    RETURNING product_id;
-                """, (product_name,))
-
-                result = cur.fetchone()
-                new_id = result['product_id']
+                try:
+                    # First, try to insert the new product
+                    cur.execute("""
+                        INSERT INTO products (product_name, product_type, is_active)
+                        VALUES (%s, 'other', TRUE)
+                        RETURNING product_id;
+                    """, (product_name,))
+                    result = cur.fetchone()
+                    new_id = result['product_id']
+                except psycopg2.IntegrityError:
+                    # Product already exists, update it to active
+                    conn.rollback()
+                    cur.execute("""
+                        UPDATE products 
+                        SET is_active = TRUE
+                        WHERE product_name = %s
+                        RETURNING product_id;
+                    """, (product_name,))
+                    result = cur.fetchone()
+                    new_id = result['product_id']
+                
                 product_map[product_key] = new_id
 
             product_id = product_map[product_key]
@@ -132,15 +144,22 @@ def upload_throwaways():
                     continue
 
                 # Insert into daily_throwaway table
-                cur.execute("""
-                    INSERT INTO daily_throwaway
-                    (store_id, product_id, date, produced, waste)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (store_id, product_id, date)
-                    DO UPDATE SET 
-                        produced = EXCLUDED.produced,
-                        waste = EXCLUDED.waste;
-                """, (store_id, product_id, date, produced, waste))
+                try:
+                    cur.execute("""
+                        INSERT INTO daily_throwaway
+                        (store_id, product_id, date, produced, waste)
+                        VALUES (%s, %s, %s, %s, %s);
+                    """, (store_id, product_id, date, produced, waste))
+                except psycopg2.IntegrityError:
+                    # Record already exists, update it
+                    conn.rollback()
+                    cur.execute("""
+                        UPDATE daily_throwaway
+                        SET produced = %s, waste = %s
+                        WHERE store_id = %s 
+                          AND product_id = %s 
+                          AND date = %s;
+                    """, (produced, waste, store_id, product_id, date))
 
             imported_count += 1
 
