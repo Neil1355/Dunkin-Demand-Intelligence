@@ -610,13 +610,18 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
   const handleExportData = async () => {
     try {
-      // Get current week's Sunday
-      const today = new Date();
-      const dayOfWeek = today.getDay();
-      const daysToSunday = dayOfWeek === 0 ? 0 : dayOfWeek;
-      const sunday = new Date(today);
-      sunday.setDate(today.getDate() - daysToSunday);
-      const weekStart = sunday.toISOString().split('T')[0];
+      // Prefer exporting the most recently imported week; fallback to previous week (Sunday start).
+      let weekStart = '';
+      if (Array.isArray(importedData) && importedData.length > 0 && importedData[0]?.week_start) {
+        weekStart = String(importedData[0].week_start).slice(0, 10);
+      } else {
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        const daysToSunday = dayOfWeek === 0 ? 7 : dayOfWeek + 7;
+        const previousSunday = new Date(today);
+        previousSunday.setDate(today.getDate() - daysToSunday);
+        weekStart = previousSunday.toISOString().split('T')[0];
+      }
 
       // Call backend export endpoint
       const baseUrl = import.meta.env.VITE_API_URL || 'https://dunkin-demand-intelligence.onrender.com/api/v1';

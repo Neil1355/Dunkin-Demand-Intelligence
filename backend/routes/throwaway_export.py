@@ -338,6 +338,12 @@ def export_throwaway():
                 ws.cell(current_row, 3 + day * 2, munchkin_totals_waste[day])
         current_row += 1
 
+        # Improve sheet readability so date cells don't render as #### in Excel.
+        ws.column_dimensions['A'].width = 32
+        for col in ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']:
+            ws.column_dimensions[col].width = 11
+        ws.column_dimensions['P'].width = 10
+
         # Save to temporary file
         temp_dir = tempfile.gettempdir()
         filename = f"Dunkin_Throwaways_{week_start.strftime('%m.%d.%y')}.xlsx"
