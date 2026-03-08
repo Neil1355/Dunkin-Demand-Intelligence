@@ -40,6 +40,20 @@ def next_day_forecast():
             """, (store_id, product_id, target_date, target_isodow))
 
             rows = cur.fetchall()
+            # Fallback: if no same-weekday history exists yet, use most recent rows.
+            if not rows:
+                cur.execute("""
+                    SELECT
+                        GREATEST(COALESCE(dt.produced, 0) - COALESCE(dt.waste, 0), 0) AS sold
+                    FROM daily_throwaway dt
+                    WHERE dt.store_id = %s
+                      AND dt.product_id = %s
+                      AND dt.date <= %s
+                    ORDER BY dt.date DESC
+                    LIMIT 4
+                """, (store_id, product_id, target_date))
+                rows = cur.fetchall()
+
             if not rows:
                 continue
 
@@ -67,7 +81,8 @@ def next_day_forecast():
         return jsonify({
             "store_id": store_id,
             "target_date": str(target_date),
-            "forecast": forecast
+            "forecast": forecast,
+            "generated_products": len(forecast)
         })
     finally:
         return_connection(conn)

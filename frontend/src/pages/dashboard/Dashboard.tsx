@@ -401,7 +401,14 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       try {
         setHistoryLoading(true);
         const result = await apiFetch(`/forecast_history/?store_id=${storeId}&days=7`);
-        setHistoryData(result || []);
+        const normalized = Array.isArray(result)
+          ? result.map((row: any) => ({
+              date: row.target_date || row.date,
+              production: row.final_quantity ?? row.predicted_quantity ?? row.actual_sold ?? 0,
+              waste_pct: row.error_pct ?? null,
+            }))
+          : [];
+        setHistoryData(normalized);
       } catch (err) {
         console.error("Failed to load history:", err);
         setHistoryData([]);
@@ -597,7 +604,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       
       const result = await apiFetch(`/forecast/next-day?store_id=${storeId}&target_date=${targetDate}`);
       
-      alert("Forecast generated successfully!");
+      const count = result?.generated_products ?? Object.keys(result?.forecast || {}).length;
+      alert(`Forecast generated successfully for ${count} products.`);
       console.log("Forecast result:", result);
       
       // Fetch the generated forecast to display
