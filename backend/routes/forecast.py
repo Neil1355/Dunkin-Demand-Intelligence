@@ -10,6 +10,10 @@ def next_day_forecast():
     if not store_id:
         return jsonify({"error": "store_id required"}), 400
 
+    # Get adjustment multiplier from query params (default 1.0)
+    adjustment = request.args.get("adjustment", type=float, default=1.0)
+    adjustment = max(0.5, min(2.0, adjustment))  # Clamp between 0.5 and 2.0
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -59,6 +63,9 @@ def next_day_forecast():
 
             sold_values = [int(r["sold"] or 0) for r in rows]
             avg_sold = max(int(round(sum(sold_values) / len(sold_values))), 0)
+            
+            # Apply adjustment multiplier based on business context
+            adjusted_quantity = max(int(round(avg_sold * adjustment)), 0)
 
             cur.execute("""
                 INSERT INTO forecast_history
@@ -71,9 +78,9 @@ def next_day_forecast():
                     model_version = EXCLUDED.model_version,
                     status = EXCLUDED.status,
                     created_at = NOW();
-            """, (store_id, product_id, target_date, avg_sold))
+            """, (store_id, product_id, target_date, adjusted_quantity))
 
-            forecast[product_id] = avg_sold
+            forecast[product_id] = adjusted_quantity
 
         conn.commit()
         cur.close()

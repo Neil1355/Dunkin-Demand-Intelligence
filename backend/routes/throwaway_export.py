@@ -58,7 +58,7 @@ def export_throwaway():
         """)
         products = cur.fetchall()
 
-        # Fetch throwaway data
+        # Fetch throwaway data and products with activity in the selected week
         cur.execute("""
             SELECT 
                 p.product_name,
@@ -67,10 +67,11 @@ def export_throwaway():
                 COALESCE(dt.produced, 0) AS produced,
                 COALESCE(dt.waste, 0) AS waste
             FROM products p
-            LEFT JOIN daily_throwaway dt ON p.product_id = dt.product_id
+            INNER JOIN daily_throwaway dt ON p.product_id = dt.product_id
                 AND dt.store_id = %s
                 AND dt.date BETWEEN %s AND %s
             WHERE p.is_active = TRUE
+              AND (dt.produced > 0 OR dt.waste > 0)
             ORDER BY 
                 CASE p.product_type
                     WHEN 'croissant' THEN 1
@@ -88,13 +89,21 @@ def export_throwaway():
         return_connection(conn)
 
         # Build data structure: {product_name: [am_sun, pm_sun, am_mon, pm_mon, ...]}
+        # Only include products that have data in this week (from rows)
         product_data = {}
         product_types = {}
+        active_products_this_week = set()
         
+        # First pass: identify which products have data
+        for row in rows:
+            active_products_this_week.add(row['product_name'])
+        
+        # Only initialize products that are active this week
         for product in products:
             product_name = product['product_name']
-            product_data[product_name] = [None] * 14
-            product_types[product_name] = product['product_type']
+            if product_name in active_products_this_week:
+                product_data[product_name] = [None] * 14
+                product_types[product_name] = product['product_type']
 
         # Fill in actual data
         for row in rows:

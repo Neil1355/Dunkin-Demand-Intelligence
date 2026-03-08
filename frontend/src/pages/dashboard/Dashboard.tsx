@@ -660,34 +660,41 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   };
 
   async function handleGenerateForecast() {
+    // Show modal instead of prompts
+    setShowForecastModal(true);
+  }
+
+  async function submitForecastGeneration() {
+    setShowForecastModal(false);
     setForecastLoading(true);
     try {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const targetDate = tomorrow.toISOString().split("T")[0];
 
-      // Quick manager context popup before generation
-      const expectedTraffic = (prompt("Forecast context: How busy do you expect tomorrow? (slow / normal / busy)", "normal") || "normal").trim().toLowerCase();
-      const normalizedExpectation = expectedTraffic === 'busy' || expectedTraffic === 'slow' ? expectedTraffic : 'normal';
-      const hasEvent = confirm("Any special event/promotion tomorrow?");
-      const notes = prompt("Any additional notes for forecast? (optional)", "") || "";
-
+      // Save context with selected options
       try {
         await apiFetch('/forecast/context/', {
           method: 'POST',
           body: JSON.stringify({
             store_id: storeId,
             target_date: targetDate,
-            expectation: normalizedExpectation,
-            reason: hasEvent ? 'special_event' : 'regular_day',
-            notes,
+            expectation: forecastBusinessLevel,
+            reason: forecastReason,
+            notes: forecastNotes,
           }),
         });
       } catch (contextErr) {
         console.warn('Context save failed, continuing forecast generation:', contextErr);
       }
       
-      const result = await apiFetch(`/forecast/next-day?store_id=${storeId}&target_date=${targetDate}`);
+      // Generate forecast with adjustment multiplier
+      const multiplier = forecastBusinessLevel === 'busy' ? 1.2 : 
+                        forecastBusinessLevel === 'slower' ? 0.8 : 1.0;
+      
+      const result = await apiFetch(
+        `/forecast/next-day?store_id=${storeId}&target_date=${targetDate}&adjustment=${multiplier}`
+      );
       
       const count = result?.generated_products ?? Object.keys(result?.forecast || {}).length;
       alert(`Forecast generated successfully for ${count} products.`);
@@ -695,6 +702,11 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       
       // Fetch the generated forecast to display
       await fetchForecastPredictions(targetDate);
+      
+      // Reset modal state
+      setForecastBusinessLevel('normal');
+      setForecastReason('regular_day');
+      setForecastNotes('');
     } catch (err) {
       alert("Failed to generate forecast: " + (err instanceof Error ? err.message : 'Unknown error'));
       console.error(err);
@@ -1660,6 +1672,89 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           </div>
         </div>
       </div>
+
+      {/* Forecast Context Modal */}
+      {showForecastModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={() => setShowForecastModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-8 shadow-2xl max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-2xl font-bold mb-6" style={{ color: '#FF671F' }}>
+              Forecast Context
+            </h3>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#8B7355' }}>
+                  Expected Business Level
+                </label>
+                <select
+                  value={forecastBusinessLevel}
+                  onChange={(e) => setForecastBusinessLevel(e.target.value as 'normal' | 'busy' | 'slower')}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#FF671F] focus:outline-none"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="busy">Busy (+20%)</option>
+                  <option value="slower">Slower (-20%)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#8B7355' }}>
+                  Reason / Event
+                </label>
+                <select
+                  value={forecastReason}
+                  onChange={(e) => setForecastReason(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#FF671F] focus:outline-none"
+                >
+                  <option value="regular_day">Regular Day</option>
+                  <option value="school">School Event</option>
+                  <option value="weather">Weather Related</option>
+                  <option value="holiday">Holiday</option>
+                  <option value="special_occasion">Special Occasion</option>
+                  <option value="promotion">Promotion</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#8B7355' }}>
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  value={forecastNotes}
+                  onChange={(e) => setForecastNotes(e.target.value)}
+                  placeholder="Any specific details..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#FF671F] focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <button
+                  onClick={() => setShowForecastModal(false)}
+                  className="flex-1 py-3 rounded-full border-2 transition-all hover:bg-gray-50"
+                  style={{ borderColor: '#8B7355', color: '#8B7355' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitForecastGeneration}
+                  className="flex-1 py-3 rounded-full text-white transition-all hover:scale-105 shadow-lg"
+                  style={{ backgroundColor: '#FF671F' }}
+                >
+                  Generate Forecast
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
