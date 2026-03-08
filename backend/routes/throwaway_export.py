@@ -121,16 +121,18 @@ def export_throwaway():
         # Row 1: Empty
         current_row += 1
 
-        # Row 2: DATE: label and date
+        # Row 2: DATE: with all 7 dates
         ws.cell(current_row, 1, "DATE:")
-        ws.cell(current_row, 2, week_start)
-        ws.cell(current_row, 2).number_format = 'mm/dd/yyyy'
+        for i, date in enumerate(dates):
+            ws.cell(current_row, 2 + i * 2, date)
+            ws.cell(current_row, 2 + i * 2).number_format = 'mm/dd/yyyy'
         current_row += 1
 
-        # Row 3: Day names (SUN, MON, etc.)
+        # Row 3: Day names (SUN, MON, etc.) + PM TTL header
         day_names = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
         for i, day in enumerate(day_names):
             ws.cell(current_row, 2 + i * 2, day)
+        ws.cell(current_row, 16, "PM TTL")
         current_row += 1
 
         # Row 4: AM/PM headers
@@ -173,9 +175,19 @@ def export_throwaway():
                 values = product_data.get(product_name, [None] * 14)
                 
                 ws.cell(current_row, 1, product_name)
+                
+                # Fill in AM/PM values and calculate PM total
+                pm_total = 0
                 for i, val in enumerate(values):
                     if val is not None and val != 0:
                         ws.cell(current_row, 2 + i, val)
+                        # If it's a PM column (odd index), add to PM total
+                        if i % 2 == 1:
+                            pm_total += val
+                
+                # Add PM TTL column
+                if pm_total > 0:
+                    ws.cell(current_row, 16, pm_total)
                 
                 # Accumulate totals for donuts and munchkins
                 for day in range(7):
@@ -197,26 +209,35 @@ def export_throwaway():
         # Add summary rows for Donuts
         current_row += 1
         
-        # Donuts Bought (produced)
+        # Donuts Bought (produced in AM columns only)
         ws.cell(current_row, 1, "Donuts Bought")
         ws.cell(current_row, 1).font = Font(bold=True)
         for day in range(7):
             if donut_totals_produced[day] > 0:
                 ws.cell(current_row, 2 + day * 2, donut_totals_produced[day])
+        ws.cell(current_row, 16, sum(donut_totals_produced))
         current_row += 1
 
-        # Donuts Sold (produced - waste) - renamed to "Difference"
+        # Donuts Sold (produced - waste in AM columns only)
         ws.cell(current_row, 1, "Donuts Sold")
         ws.cell(current_row, 1).font = Font(bold=True)
+        total_sold = 0
         for day in range(7):
             sold = donut_totals_produced[day] - donut_totals_waste[day]
             if sold > 0:
                 ws.cell(current_row, 2 + day * 2, sold)
+                total_sold += sold
+        ws.cell(current_row, 16, total_sold)
         current_row += 1
 
-        # Difference (same as waste for now)
+        # Difference (Bought - Sold = waste, shown in AM columns)
         ws.cell(current_row, 1, "Difference")
         ws.cell(current_row, 1).font = Font(bold=True)
+        for day in range(7):
+            diff = donut_totals_waste[day]
+            if diff > 0:
+                ws.cell(current_row, 2 + day * 2, diff)
+        ws.cell(current_row, 16, sum(donut_totals_waste))
         current_row += 1
 
         # Throwaway (waste in PM columns only)
@@ -227,36 +248,90 @@ def export_throwaway():
                 ws.cell(current_row, 3 + day * 2, donut_totals_waste[day])
         current_row += 1
 
-        # Add Tot PM Donut Throw row
+        # Empty rows
         current_row += 1
+        current_row += 1
+        current_row += 1
+
+        # Tot PM Donut Throw
         ws.cell(current_row, 1, "Tot PM Donut Throw")
         ws.cell(current_row, 1).font = Font(bold=True)
         total_pm_throw = sum(donut_totals_waste)
         ws.cell(current_row, 2, total_pm_throw)
+        # Also show in each PM column
+        for day in range(7):
+            if donut_totals_waste[day] > 0:
+                ws.cell(current_row, 3 + day * 2, donut_totals_waste[day])
         current_row += 1
 
         # Add summary rows for Munchkins
         current_row += 1
+        current_row += 1
+        
+        # Second set of day headers forMunchkins section
+        for i, day in enumerate(day_names):
+            ws.cell(current_row, 2 + i * 2, day)
+        ws.cell(current_row, 16, "PM TTL")
+        current_row += 1
+        
+        # AM/PM headers again
+        for i in range(7):
+            ws.cell(current_row, 2 + i * 2, "AM")
+            ws.cell(current_row, 3 + i * 2, "PM")
+        current_row += 1
         
         # Munchkins Bought
-        ws.cell(current_row, 1, "Munchkins Bought")
+        ws.cell(current_row, 1, "Muffins")
+        ws.cell(current_row, 1).font = Font(bold=True)
+        current_row += 1
+        
+        # Add muffin products if any (empty for now based on screenshot)
+        current_row += 1
+        current_row += 1
+        
+        # Munchkins section
+        ws.cell(current_row, 1, "Munchkins")
+        ws.cell(current_row, 1).font = Font(bold=True)
+        current_row += 1
+        
+        # Add blank rows
+        current_row += 1
+        current_row += 1
+        current_row += 1
+        
+        # Munchkins Bought
+        ws.cell(current_row, 1, "Donuts Bought")
         ws.cell(current_row, 1).font = Font(bold=True)
         for day in range(7):
             if munchkin_totals_produced[day] > 0:
                 ws.cell(current_row, 2 + day * 2, munchkin_totals_produced[day])
+        ws.cell(current_row, 16, sum(munchkin_totals_produced))
         current_row += 1
 
         # Munchkins Sold
-        ws.cell(current_row, 1, "Munchkins Sold")
+        ws.cell(current_row, 1, "Donuts Sold")
         ws.cell(current_row, 1).font = Font(bold=True)
+        total_munchkin_sold = 0
         for day in range(7):
             sold = munchkin_totals_produced[day] - munchkin_totals_waste[day]
             if sold > 0:
                 ws.cell(current_row, 2 + day * 2, sold)
+                total_munchkin_sold += sold
+        ws.cell(current_row, 16, total_munchkin_sold)
+        current_row += 1
+        
+        # Munchkin Difference
+        ws.cell(current_row, 1, "Difference")
+        ws.cell(current_row, 1).font = Font(bold=True)
+        for day in range(7):
+            diff = munchkin_totals_waste[day]
+            if diff > 0:
+                ws.cell(current_row, 2 + day * 2, diff)
+        ws.cell(current_row, 16, sum(munchkin_totals_waste))
         current_row += 1
 
         # Munchkin Throwaway
-        ws.cell(current_row, 1, "Munchkin Throwaway")
+        ws.cell(current_row, 1, "Throwaway")
         ws.cell(current_row, 1).font = Font(bold=True)
         for day in range(7):
             if munchkin_totals_waste[day] > 0:
