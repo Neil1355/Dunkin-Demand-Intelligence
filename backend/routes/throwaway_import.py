@@ -223,11 +223,6 @@ def get_recent_imports():
               AND dt.created_at >= NOW() - INTERVAL '%s days'
             GROUP BY (dt.date - EXTRACT(DOW FROM dt.date)::INTEGER)
             ORDER BY week_start DESC;
-            FROM daily_throwaway dt
-            WHERE dt.store_id = %s
-              AND dt.created_at >= NOW() - INTERVAL '%s days'
-            GROUP BY DATE_TRUNC('week', dt.date)
-            ORDER BY week_start DESC;
         """, (store_id, days_back))
         
         weeks = cur.fetchall()
