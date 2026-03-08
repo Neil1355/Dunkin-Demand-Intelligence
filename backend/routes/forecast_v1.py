@@ -32,6 +32,7 @@ def get_forecast():
             SELECT
                 fh.product_id,
                 p.product_name,
+                p.product_type,
                 fh.predicted_quantity,
                 fh.adjusted_quantity,
                 fh.final_quantity,
@@ -52,15 +53,29 @@ def get_forecast():
 
         products = []
         for row in rows:
-            products.append({
-                "product_id": row[0],
-                "product_name": row[1],
-                "predicted_quantity": row[2],
-                "adjusted_quantity": row[3],
-                "final_quantity": row[4],
-                "status": row[5],
-                "model_version": row[6]
-            })
+            # get_connection uses RealDictCursor; support tuple fallback for safety.
+            if isinstance(row, dict):
+                products.append({
+                    "product_id": row.get("product_id"),
+                    "product_name": row.get("product_name"),
+                    "product_type": row.get("product_type"),
+                    "predicted_quantity": row.get("predicted_quantity"),
+                    "adjusted_quantity": row.get("adjusted_quantity"),
+                    "final_quantity": row.get("final_quantity"),
+                    "status": row.get("status"),
+                    "model_version": row.get("model_version")
+                })
+            else:
+                products.append({
+                    "product_id": row[0],
+                    "product_name": row[1],
+                    "product_type": row[2],
+                    "predicted_quantity": row[3],
+                    "adjusted_quantity": row[4],
+                    "final_quantity": row[5],
+                    "status": row[6],
+                    "model_version": row[7]
+                })
 
         return jsonify({
             "store_id": store_id,

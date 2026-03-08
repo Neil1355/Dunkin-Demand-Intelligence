@@ -479,6 +479,17 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     { week: 'Week 4', production: 0, optimal: 0 }
   ];
 
+  const donutForecasts = forecastPredictions.filter((p: any) =>
+    (p.product_type || '').toLowerCase() === 'donut' ||
+    ((p.product_name || '').toLowerCase().includes('donut') && !(p.product_name || '').toLowerCase().includes('munchkin'))
+  );
+  const munchkinForecasts = forecastPredictions.filter((p: any) =>
+    (p.product_type || '').toLowerCase() === 'munchkin' ||
+    (p.product_name || '').toLowerCase().includes('munchkin')
+  );
+
+  const getForecastQty = (product: any) => product.final_quantity || product.predicted_quantity || 0;
+
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'data-entry', icon: Pencil, label: 'Enter Daily Data' },
@@ -1375,16 +1386,41 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                 </div>
               ) : (
                 <>
-                  {/* All Products */}
-                  <div className="mb-8">
-                    <h4 className="mb-4" style={{ color: '#DA1884' }}>All Products</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {forecastPredictions.map((product) => (
-                        <div key={product.product_id} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
-                          <span style={{ color: '#8B7355' }}>{product.product_name}</span>
-                          <span style={{ color: '#FF671F' }}>{product.final_quantity || product.predicted_quantity || 0} units</span>
+                  <div className="mb-8 space-y-6">
+                    <div>
+                      <h4 className="mb-3" style={{ color: '#DA1884' }}>Donuts</h4>
+                      {donutForecasts.length === 0 ? (
+                        <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0', color: '#8B7355' }}>
+                          No donut forecast items.
                         </div>
-                      ))}
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {donutForecasts.map((product: any) => (
+                            <div key={`donut-${product.product_id}`} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
+                              <span style={{ color: '#8B7355' }}>{product.product_name}</span>
+                              <span style={{ color: '#FF671F' }}>{getForecastQty(product)} units</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="mb-3" style={{ color: '#DA1884' }}>Munchkins</h4>
+                      {munchkinForecasts.length === 0 ? (
+                        <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0', color: '#8B7355' }}>
+                          No munchkin forecast items.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {munchkinForecasts.map((product: any) => (
+                            <div key={`munchkin-${product.product_id}`} className="flex items-center justify-between p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
+                              <span style={{ color: '#8B7355' }}>{product.product_name}</span>
+                              <span style={{ color: '#FF671F' }}>{getForecastQty(product)} units</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
