@@ -56,6 +56,8 @@ def get_raw(forecast_id):
 
 @bp.route('/', methods=['POST'])
 @bp_alt.route('/', methods=['POST'])
+@bp.route('/raw', methods=['POST'])
+@bp_alt.route('/raw', methods=['POST'])
 def create_raw():
     data = request.get_json() or {}
     conn = get_connection()
