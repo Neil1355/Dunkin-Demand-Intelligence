@@ -122,25 +122,31 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       const result = await apiFetch(`/dashboard/production-summary?store_id=${storeId}&days=28`);
       
       if (result.daily_data && result.daily_data.length > 0) {
-        // Transform for line chart - show weekly averages
-        const weeklyGroups: any = {};
-        result.daily_data.forEach((item: any, idx: number) => {
-          const weekNum = Math.ceil((result.daily_data.length - idx) / 7);
-          if (!weeklyGroups[weekNum]) {
-            weeklyGroups[weekNum] = { week: `Week ${weekNum}`, production: 0, optimal: 0, count: 0 };
-          }
-          weeklyGroups[weekNum].production += item.total_quantity || 0;
-          weeklyGroups[weekNum].count += 1;
+        // Use day-level trend for more detail and add a short moving average.
+        const sorted = [...result.daily_data].sort((a: any, b: any) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        const transformedData = sorted.map((item: any, idx: number, arr: any[]) => {
+          const production = Number(item.total_quantity || 0);
+          const products = Number(item.products_produced || 0);
+          const optimal = Math.round(production * 0.85);
+          const window = arr.slice(Math.max(0, idx - 2), idx + 1);
+          const movingAvg = Math.round(
+            window.reduce((sum: number, row: any) => sum + Number(row.total_quantity || 0), 0) / window.length
+          );
+
+          return {
+            day: new Date(item.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+            production,
+            optimal,
+            movingAvg,
+            products,
+            delta: production - optimal,
+          };
         });
-        
-        // Calculate averages and optimal (20% less than actual)
-        const transformedData = Object.values(weeklyGroups).map((w: any) => ({
-          week: w.week,
-          production: Math.round(w.production / w.count),
-          optimal: Math.round((w.production / w.count) * 0.8)
-        }));
-        
-        setProductionTrendData(transformedData.slice(0, 4));
+
+        setProductionTrendData(transformedData.slice(-14));
       }
     } catch (err) {
       console.error("Failed to load production trend:", err);
@@ -473,11 +479,13 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const trendData = productionTrendData.length > 0
     ? productionTrendData
     : [
-    { week: 'Week 1', production: 0, optimal: 0 },
-    { week: 'Week 2', production: 0, optimal: 0 },
-    { week: 'Week 3', production: 0, optimal: 0 },
-    { week: 'Week 4', production: 0, optimal: 0 }
+    { day: '3/01', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
+    { day: '3/02', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
+    { day: '3/03', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
+    { day: '3/04', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 }
   ];
+
+  const latestTrendPoint = trendData.length > 0 ? trendData[trendData.length - 1] : null;
 
   const donutForecasts = forecastPredictions.filter((p: any) =>
     (p.product_type || '').toLowerCase() === 'donut' ||
@@ -877,6 +885,12 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <h3 className="mb-4" style={{ color: '#FF671F' }}>Production Optimization</h3>
+                  {latestTrendPoint && latestTrendPoint.production > 0 && (
+                    <p className="text-sm mb-3" style={{ color: '#8B7355' }}>
+                      Latest day: {latestTrendPoint.production} produced across {latestTrendPoint.products} products.
+                      Target: {latestTrendPoint.optimal} ({latestTrendPoint.delta >= 0 ? '+' : ''}{latestTrendPoint.delta} vs target)
+                    </p>
+                  )}
                   {productionTrendLoading ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       Loading chart data...
@@ -889,12 +903,22 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart data={trendData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#E0D5C7" />
-                        <XAxis dataKey="week" stroke="#8B7355" />
+                        <XAxis dataKey="day" stroke="#8B7355" />
                         <YAxis stroke="#8B7355" />
-                        <Tooltip />
+                        <Tooltip
+                          formatter={(value: any, name: any) => {
+                            const labels: Record<string, string> = {
+                              production: 'Produced',
+                              optimal: 'Target',
+                              movingAvg: '3-day Avg'
+                            };
+                            return [value, labels[String(name)] || String(name)];
+                          }}
+                        />
                         <Legend />
                         <Line type="monotone" dataKey="production" stroke="#DA1884" strokeWidth={3} />
                         <Line type="monotone" dataKey="optimal" stroke="#FF671F" strokeWidth={3} />
+                        <Line type="monotone" dataKey="movingAvg" stroke="#8B7355" strokeDasharray="5 5" strokeWidth={2} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   )}
