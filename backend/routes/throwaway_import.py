@@ -208,16 +208,21 @@ def get_recent_imports():
         conn = get_connection()
         cur = conn.cursor()
         
-        # Get imports from the last N days, grouped by week
+        # Get imports from the last N days, grouped by week (Sunday start)
         cur.execute("""
             SELECT
-                DATE_TRUNC('week', dt.date)::DATE AS week_start,
+                (dt.date - EXTRACT(DOW FROM dt.date)::INTEGER)::DATE AS week_start,
                 MAX(dt.date) AS week_end,
                 COUNT(DISTINCT dt.product_id) AS product_count,
                 COUNT(*) AS total_records,
                 MAX(dt.created_at) AS last_import,
                 SUM(dt.produced) AS total_produced,
                 SUM(dt.waste) AS total_waste
+            FROM daily_throwaway dt
+            WHERE dt.store_id = %s
+              AND dt.created_at >= NOW() - INTERVAL '%s days'
+            GROUP BY (dt.date - EXTRACT(DOW FROM dt.date)::INTEGER)
+            ORDER BY week_start DESC;
             FROM daily_throwaway dt
             WHERE dt.store_id = %s
               AND dt.created_at >= NOW() - INTERVAL '%s days'
@@ -255,10 +260,11 @@ def get_recent_imports():
                 FROM daily_throwaway dt
                 JOIN products p ON p.product_id = dt.product_id
                 WHERE dt.store_id = %s
-                  AND DATE_TRUNC('week', dt.date) = %s
+                  AND dt.date >= %s
+                  AND dt.date < %s + INTERVAL '7 days'
                 GROUP BY p.product_id, p.product_name
                 ORDER BY p.product_name;
-            """, (store_id, week['week_start']))
+            """, (store_id, week['week_start'], week['week_start']))
             
             products = cur.fetchall()
             week_dict["products"] = [dict(p) for p in products]
