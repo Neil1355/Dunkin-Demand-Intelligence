@@ -124,11 +124,13 @@ def get_production_summary():
     - store_id: int (required)
     - days: int (default=7)
     - product_id: int (optional - filter by product)
+    - product_type: str (optional - donut|munchkin|...)
     """
     try:
         store_id = request.args.get("store_id", type=int)
         days_back = request.args.get("days", type=int, default=7)
         product_id = request.args.get("product_id", type=int, default=None)
+        product_type = request.args.get("product_type", type=str, default=None)
         
         if not store_id:
             return jsonify({"error": "store_id required"}), 400
@@ -140,8 +142,9 @@ def get_production_summary():
         if product_id:
             cur.execute("""
                 SELECT
-                                        dt.date,
-                                        dt.produced AS quantity,
+                            dt.date,
+                            dt.produced AS quantity,
+                            dt.waste,
                     p.product_name
                                 FROM public.daily_throwaway dt
                                 JOIN public.products p ON p.product_id = dt.product_id
@@ -150,11 +153,27 @@ def get_production_summary():
                                     AND dt.date >= CURRENT_DATE - INTERVAL '%s days'
                                 ORDER BY dt.date DESC
             """, (store_id, product_id, days_back))
+        elif product_type:
+            cur.execute("""
+                SELECT
+                    dt.date,
+                    SUM(dt.produced) AS total_quantity,
+                    SUM(dt.waste) AS total_waste,
+                    COUNT(DISTINCT dt.product_id) AS products_produced
+                FROM public.daily_throwaway dt
+                JOIN public.products p ON p.product_id = dt.product_id
+                WHERE dt.store_id = %s
+                  AND LOWER(p.product_type) = LOWER(%s)
+                  AND dt.date >= CURRENT_DATE - INTERVAL '%s days'
+                GROUP BY dt.date
+                ORDER BY dt.date DESC
+            """, (store_id, product_type, days_back))
         else:
             cur.execute("""
                 SELECT
                                         dt.date,
                                         SUM(dt.produced) AS total_quantity,
+                    SUM(dt.waste) AS total_waste,
                                         COUNT(DISTINCT dt.product_id) AS products_produced
                                 FROM public.daily_throwaway dt
                                 WHERE dt.store_id = %s
@@ -166,17 +185,34 @@ def get_production_summary():
         daily_data = [dict(row) for row in cur.fetchall()]
         
         # Summary stats
-        cur.execute("""
-            SELECT
-                                COUNT(DISTINCT dt.date) AS days_with_data,
-                                COUNT(DISTINCT dt.product_id) AS unique_products,
-                                SUM(dt.produced) AS total_produced,
-                                AVG(dt.produced) AS avg_daily_production,
-                                MAX(dt.produced) AS peak_production
-                        FROM public.daily_throwaway dt
-                        WHERE dt.store_id = %s
-                            AND dt.date >= CURRENT_DATE - INTERVAL '%s days'
-        """, (store_id, days_back))
+        if product_type:
+            cur.execute("""
+                SELECT
+                    COUNT(DISTINCT dt.date) AS days_with_data,
+                    COUNT(DISTINCT dt.product_id) AS unique_products,
+                    SUM(dt.produced) AS total_produced,
+                    SUM(dt.waste) AS total_waste,
+                    AVG(dt.produced) AS avg_daily_production,
+                    MAX(dt.produced) AS peak_production
+                FROM public.daily_throwaway dt
+                JOIN public.products p ON p.product_id = dt.product_id
+                WHERE dt.store_id = %s
+                  AND LOWER(p.product_type) = LOWER(%s)
+                  AND dt.date >= CURRENT_DATE - INTERVAL '%s days'
+            """, (store_id, product_type, days_back))
+        else:
+            cur.execute("""
+                SELECT
+                    COUNT(DISTINCT dt.date) AS days_with_data,
+                    COUNT(DISTINCT dt.product_id) AS unique_products,
+                    SUM(dt.produced) AS total_produced,
+                    SUM(dt.waste) AS total_waste,
+                    AVG(dt.produced) AS avg_daily_production,
+                    MAX(dt.produced) AS peak_production
+                FROM public.daily_throwaway dt
+                WHERE dt.store_id = %s
+                  AND dt.date >= CURRENT_DATE - INTERVAL '%s days'
+            """, (store_id, days_back))
         
         summary = dict(cur.fetchone())
         

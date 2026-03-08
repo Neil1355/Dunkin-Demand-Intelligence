@@ -45,6 +45,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [quickStatsLoading, setQuickStatsLoading] = useState(true);
   const [productionTrendData, setProductionTrendData] = useState<any[]>([]);
   const [productionTrendLoading, setProductionTrendLoading] = useState(true);
+  const [productionFilter, setProductionFilter] = useState<'all' | 'donut' | 'munchkin'>('all');
+  const [productionView, setProductionView] = useState<'daily' | 'weekly'>('daily');
   const [importHistoryData, setImportHistoryData] = useState<any[]>([]);
   const [importHistoryLoading, setImportHistoryLoading] = useState(true);
   const [wasteTrendData, setWasteTrendData] = useState<any[]>([]);
@@ -119,7 +121,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   async function fetchProductionTrend() {
     try {
       setProductionTrendLoading(true);
-      const result = await apiFetch(`/dashboard/production-summary?store_id=${storeId}&days=28`);
+      const filterQuery = productionFilter === 'all' ? '' : `&product_type=${productionFilter}`;
+      const result = await apiFetch(`/dashboard/production-summary?store_id=${storeId}&days=28${filterQuery}`);
       
       if (result.daily_data && result.daily_data.length > 0) {
         // Use day-level trend for more detail and add a short moving average.
@@ -127,8 +130,9 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           new Date(a.date).getTime() - new Date(b.date).getTime()
         );
 
-        const transformedData = sorted.map((item: any, idx: number, arr: any[]) => {
+        const dailyData = sorted.map((item: any, idx: number, arr: any[]) => {
           const production = Number(item.total_quantity || 0);
+          const waste = Number(item.total_waste || 0);
           const products = Number(item.products_produced || 0);
           const optimal = Math.round(production * 0.85);
           const window = arr.slice(Math.max(0, idx - 2), idx + 1);
@@ -139,6 +143,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           return {
             day: new Date(item.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
             production,
+            waste,
             optimal,
             movingAvg,
             products,
@@ -146,7 +151,35 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           };
         });
 
-        setProductionTrendData(transformedData.slice(-14));
+        if (productionView === 'weekly') {
+          const weeklyGroups: Record<string, any> = {};
+          dailyData.forEach((d: any, idx: number) => {
+            const week = `Week ${Math.floor(idx / 7) + 1}`;
+            if (!weeklyGroups[week]) {
+              weeklyGroups[week] = { week, production: 0, waste: 0, optimal: 0, movingAvg: 0, products: 0, count: 0 };
+            }
+            weeklyGroups[week].production += d.production;
+            weeklyGroups[week].waste += d.waste;
+            weeklyGroups[week].optimal += d.optimal;
+            weeklyGroups[week].products = Math.max(weeklyGroups[week].products, d.products);
+            weeklyGroups[week].count += 1;
+          });
+
+          const weeklyData = Object.values(weeklyGroups).map((w: any) => ({
+            day: w.week,
+            production: Math.round(w.production / w.count),
+            waste: Math.round(w.waste / w.count),
+            optimal: Math.round(w.optimal / w.count),
+            movingAvg: Math.round(w.production / w.count),
+            products: w.products,
+            delta: Math.round((w.production - w.optimal) / w.count),
+          }));
+          setProductionTrendData(weeklyData.slice(-6));
+        } else {
+          setProductionTrendData(dailyData.slice(-14));
+        }
+      } else {
+        setProductionTrendData([]);
       }
     } catch (err) {
       console.error("Failed to load production trend:", err);
@@ -406,13 +439,16 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     const fetchHistory = async () => {
       try {
         setHistoryLoading(true);
-        const result = await apiFetch(`/forecast_history/?store_id=${storeId}&days=7`);
-        const normalized = Array.isArray(result)
-          ? result.map((row: any) => ({
-              date: row.target_date || row.date,
-              production: row.final_quantity ?? row.predicted_quantity ?? row.actual_sold ?? 0,
-              waste_pct: row.error_pct ?? null,
-            }))
+        const result = await apiFetch(`/dashboard/waste-summary?store_id=${storeId}&days=7`);
+        const normalized = Array.isArray(result?.daily_data)
+          ? result.daily_data
+              .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .map((row: any) => ({
+                date: new Date(row.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+                production: row.total_produced ?? row.produced ?? 0,
+                waste: row.total_waste ?? row.waste ?? 0,
+                waste_pct: row.waste_percentage ?? null,
+              }))
           : [];
         setHistoryData(normalized);
       } catch (err) {
@@ -461,7 +497,11 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchImportHistory();
     fetchWasteDirectoryProducts();
     fetchPendingSubmissions();
-  }, []);
+  }, [storeId]);
+
+  useEffect(() => {
+    fetchProductionTrend();
+  }, [storeId, productionFilter, productionView]);
 
   // Use weekly data for charts if available, otherwise use placeholder
   const wasteData = wasteTrendData.length > 0 
@@ -479,10 +519,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const trendData = productionTrendData.length > 0
     ? productionTrendData
     : [
-    { day: '3/01', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
-    { day: '3/02', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
-    { day: '3/03', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
-    { day: '3/04', production: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 }
+    { day: '3/01', production: 0, waste: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
+    { day: '3/02', production: 0, waste: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
+    { day: '3/03', production: 0, waste: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 },
+    { day: '3/04', production: 0, waste: 0, optimal: 0, movingAvg: 0, products: 0, delta: 0 }
   ];
 
   const latestTrendPoint = trendData.length > 0 ? trendData[trendData.length - 1] : null;
@@ -620,6 +660,27 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const targetDate = tomorrow.toISOString().split("T")[0];
+
+      // Quick manager context popup before generation
+      const expectedTraffic = (prompt("Forecast context: How busy do you expect tomorrow? (slow / normal / busy)", "normal") || "normal").trim().toLowerCase();
+      const normalizedExpectation = expectedTraffic === 'busy' || expectedTraffic === 'slow' ? expectedTraffic : 'normal';
+      const hasEvent = confirm("Any special event/promotion tomorrow?");
+      const notes = prompt("Any additional notes for forecast? (optional)", "") || "";
+
+      try {
+        await apiFetch('/forecast/context/', {
+          method: 'POST',
+          body: JSON.stringify({
+            store_id: storeId,
+            target_date: targetDate,
+            expectation: normalizedExpectation,
+            reason: hasEvent ? 'special_event' : 'regular_day',
+            notes,
+          }),
+        });
+      } catch (contextErr) {
+        console.warn('Context save failed, continuing forecast generation:', contextErr);
+      }
       
       const result = await apiFetch(`/forecast/next-day?store_id=${storeId}&target_date=${targetDate}`);
       
@@ -885,10 +946,38 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
                   <h3 className="mb-4" style={{ color: '#FF671F' }}>Production Optimization</h3>
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
+                    <select
+                      value={productionFilter}
+                      onChange={(e) => setProductionFilter(e.target.value as 'all' | 'donut' | 'munchkin')}
+                      className="px-3 py-2 rounded-lg border"
+                      style={{ borderColor: '#FFD7B5', color: '#8B7355' }}
+                    >
+                      <option value="all">All Products</option>
+                      <option value="donut">Donuts Only</option>
+                      <option value="munchkin">Munchkins Only</option>
+                    </select>
+                    <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: '#FFD7B5' }}>
+                      <button
+                        onClick={() => setProductionView('daily')}
+                        className="px-3 py-2 text-sm"
+                        style={{ backgroundColor: productionView === 'daily' ? '#FF671F' : '#FFF8F0', color: productionView === 'daily' ? 'white' : '#8B7355' }}
+                      >
+                        Daily
+                      </button>
+                      <button
+                        onClick={() => setProductionView('weekly')}
+                        className="px-3 py-2 text-sm"
+                        style={{ backgroundColor: productionView === 'weekly' ? '#FF671F' : '#FFF8F0', color: productionView === 'weekly' ? 'white' : '#8B7355' }}
+                      >
+                        Weekly
+                      </button>
+                    </div>
+                  </div>
                   {latestTrendPoint && latestTrendPoint.production > 0 && (
                     <p className="text-sm mb-3" style={{ color: '#8B7355' }}>
                       Latest day: {latestTrendPoint.production} produced across {latestTrendPoint.products} products.
-                      Target: {latestTrendPoint.optimal} ({latestTrendPoint.delta >= 0 ? '+' : ''}{latestTrendPoint.delta} vs target)
+                      Waste: {latestTrendPoint.waste || 0}. Target: {latestTrendPoint.optimal} ({latestTrendPoint.delta >= 0 ? '+' : ''}{latestTrendPoint.delta} vs target)
                     </p>
                   )}
                   {productionTrendLoading ? (
@@ -910,7 +999,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                             const labels: Record<string, string> = {
                               production: 'Produced',
                               optimal: 'Target',
-                              movingAvg: '3-day Avg'
+                              movingAvg: '3-day Avg',
+                              waste: 'Waste'
                             };
                             return [value, labels[String(name)] || String(name)];
                           }}
@@ -918,6 +1008,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                         <Legend />
                         <Line type="monotone" dataKey="production" stroke="#DA1884" strokeWidth={3} />
                         <Line type="monotone" dataKey="optimal" stroke="#FF671F" strokeWidth={3} />
+                        <Line type="monotone" dataKey="waste" stroke="#7A4B2A" strokeWidth={2} />
                         <Line type="monotone" dataKey="movingAvg" stroke="#8B7355" strokeDasharray="5 5" strokeWidth={2} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
@@ -1475,7 +1566,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                       <span style={{ color: '#8B7355' }}>{entry.date || `Day ${idx + 1}`}</span>
                       <div className="flex gap-6">
                         <span style={{ color: '#FF671F' }}>Production: {entry.production || '—'}</span>
-                        <span style={{ color: '#DA1884' }}>Waste: {entry.waste_pct ? entry.waste_pct + '%' : '—'}</span>
+                        <span style={{ color: '#DA1884' }}>Waste: {entry.waste ?? '—'} {entry.waste_pct != null ? `(${entry.waste_pct}%)` : ''}</span>
                       </div>
                     </div>
                   ))}
