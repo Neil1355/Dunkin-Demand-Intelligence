@@ -60,6 +60,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [wasteDirectoryProducts, setWasteDirectoryProducts] = useState<any[]>([]);
   const [selectedAddProductId, setSelectedAddProductId] = useState('');
   const [expandedImportedWeeks, setExpandedImportedWeeks] = useState<Record<string, boolean>>({});
+  const [showForecastModal, setShowForecastModal] = useState(false);
+  const [forecastBusinessLevel, setForecastBusinessLevel] = useState<'normal' | 'busy' | 'slower'>('normal');
+  const [forecastReason, setForecastReason] = useState('regular_day');
+  const [forecastNotes, setForecastNotes] = useState('');
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})

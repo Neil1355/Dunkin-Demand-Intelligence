@@ -185,7 +185,10 @@ def export_throwaway():
 
         for product_type, category_label in categories:
             # Get products in this category (with smart grouping)
-            category_products = [p for p in products if get_smart_category(p) == product_type]
+            category_products = [
+                p for p in products
+                if get_smart_category(p) == product_type and p['product_name'] in active_products_this_week
+            ]
             
             if not category_products:
                 continue
