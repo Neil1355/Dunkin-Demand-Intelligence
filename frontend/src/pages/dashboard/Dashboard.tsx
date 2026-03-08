@@ -595,13 +595,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       tomorrow.setDate(tomorrow.getDate() + 1);
       const targetDate = tomorrow.toISOString().split("T")[0];
       
-      const result = await apiFetch("/forecast/raw", {
-        method: "POST",
-        body: JSON.stringify({
-          store_id: storeId,
-          target_date: targetDate
-        })
-      });
+      const result = await apiFetch(`/forecast/next-day?store_id=${storeId}&target_date=${targetDate}`);
       
       alert("Forecast generated successfully!");
       console.log("Forecast result:", result);
@@ -838,7 +832,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white rounded-3xl p-6 shadow-lg">
-                  <h3 className="mb-4" style={{ color: '#FF671F' }}>Weekly Waste vs Sales</h3>
+                  <h3 className="mb-4" style={{ color: '#FF671F' }}>Weekly Waste vs Sales (%)</h3>
                   {wasteTrendLoading ? (
                     <div className="h-[300px] flex items-center justify-center" style={{ color: '#8B7355' }}>
                       Loading chart data...

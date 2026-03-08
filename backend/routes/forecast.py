@@ -14,44 +14,49 @@ def next_day_forecast():
     try:
         cur = conn.cursor()
 
-        target_date = request.args.get("target_date", type=lambda d: date.fromisoformat(d)) \
-                  or date.today() + timedelta(days=1)
-        weekday = target_date.weekday()
+        target_date = request.args.get("target_date", type=lambda d: date.fromisoformat(d)) or (date.today() + timedelta(days=1))
+        target_isodow = target_date.isoweekday()
 
-        cur.execute("SELECT product_id FROM products WHERE is_active = true")
+        cur.execute("SELECT product_id FROM products WHERE is_active = TRUE")
         products = cur.fetchall()
 
         forecast = {}
 
-        for (product_id,) in products:
+        for product in products:
+            product_id = product["product_id"]
+
+            # Use recent same-weekday performance from imported throwaway sheets.
+            # sold ~= produced - waste.
             cur.execute("""
                 SELECT
-                    p.production_date,
-                    p.quantity_produced,
-                    COALESCE(t.quantity_thrown, 0) AS waste
-                FROM daily_production p
-                LEFT JOIN daily_throwaway t
-                  ON p.store_id = t.store_id
-                 AND p.product_id = t.product_id
-                 AND p.production_date = t.throwaway_date
-                WHERE p.store_id = %s
-                  AND p.product_id = %s
-                  AND EXTRACT(DOW FROM p.production_date) = %s
-                ORDER BY p.production_date DESC
+                    GREATEST(COALESCE(dt.produced, 0) - COALESCE(dt.waste, 0), 0) AS sold
+                FROM daily_throwaway dt
+                WHERE dt.store_id = %s
+                  AND dt.product_id = %s
+                  AND dt.date < %s
+                  AND EXTRACT(ISODOW FROM dt.date) = %s
+                ORDER BY dt.date DESC
                 LIMIT 4
-            """, (store_id, product_id, weekday))
+            """, (store_id, product_id, target_date, target_isodow))
 
             rows = cur.fetchall()
             if not rows:
                 continue
 
-            sold = [(r[1] - r[2]) for r in rows]
-            avg_sold = max(int(sum(sold) / len(sold)), 0)
+            sold_values = [int(r["sold"] or 0) for r in rows]
+            avg_sold = max(int(round(sum(sold_values) / len(sold_values))), 0)
 
             cur.execute("""
                 INSERT INTO forecast_history
-                (store_id, product_id, forecast_date, target_date, predicted_quantity)
-                VALUES (%s, %s, CURRENT_DATE, %s, %s)
+                (store_id, product_id, forecast_date, target_date, predicted_quantity, model_version, status)
+                VALUES (%s, %s, CURRENT_DATE, %s, %s, 'v1', 'pending')
+                ON CONFLICT (store_id, product_id, target_date)
+                DO UPDATE SET
+                    forecast_date = EXCLUDED.forecast_date,
+                    predicted_quantity = EXCLUDED.predicted_quantity,
+                    model_version = EXCLUDED.model_version,
+                    status = EXCLUDED.status,
+                    created_at = NOW();
             """, (store_id, product_id, target_date, avg_sold))
 
             forecast[product_id] = avg_sold
