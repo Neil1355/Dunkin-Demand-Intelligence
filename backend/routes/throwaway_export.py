@@ -147,6 +147,23 @@ def export_throwaway():
         munchkin_totals_produced = [0] * 7
         munchkin_totals_waste = [0] * 7
 
+        # Smart grouping: reclassify "other" products based on keywords
+        def get_smart_category(product):
+            product_type = product['product_type']
+            product_name_lower = product['product_name'].lower()
+            
+            # If already categorized, keep it unless it's 'other'
+            if product_type != 'other':
+                return product_type
+            
+            # Smart classification for 'other' items
+            if 'munchkin' in product_name_lower or 'munch' in product_name_lower:
+                return 'munchkin'
+            elif any(keyword in product_name_lower for keyword in ['donut', 'glazed', 'frosted', 'chocolate', 'jelly', 'bavarian', 'cruller', 'filled']):
+                return 'donut'
+            else:
+                return 'other'
+        
         # Group products by category
         categories = [
             ('croissant', 'Plain Croissants'),
@@ -158,8 +175,8 @@ def export_throwaway():
         ]
 
         for product_type, category_label in categories:
-            # Get products in this category
-            category_products = [p for p in products if p['product_type'] == product_type]
+            # Get products in this category (with smart grouping)
+            category_products = [p for p in products if get_smart_category(p) == product_type]
             
             if not category_products:
                 continue
@@ -189,15 +206,16 @@ def export_throwaway():
                 if pm_total > 0:
                     ws.cell(current_row, 16, pm_total)
                 
-                # Accumulate totals for donuts and munchkins
+                # Accumulate totals for donuts and munchkins (use smart category)
                 for day in range(7):
                     produced = values[day * 2] if values[day * 2] else 0
                     waste = values[day * 2 + 1] if values[day * 2 + 1] else 0
                     
-                    if product_type == 'donut':
+                    smart_category = get_smart_category(product)
+                    if smart_category == 'donut':
                         donut_totals_produced[day] += produced
                         donut_totals_waste[day] += waste
-                    elif product_type == 'munchkin':
+                    elif smart_category == 'munchkin':
                         munchkin_totals_produced[day] += produced
                         munchkin_totals_waste[day] += waste
                 
@@ -300,7 +318,7 @@ def export_throwaway():
         current_row += 1
         
         # Munchkins Bought
-        ws.cell(current_row, 1, "Donuts Bought")
+        ws.cell(current_row, 1, "Munchkins Bought")
         ws.cell(current_row, 1).font = Font(bold=True)
         for day in range(7):
             if munchkin_totals_produced[day] > 0:
@@ -309,7 +327,7 @@ def export_throwaway():
         current_row += 1
 
         # Munchkins Sold
-        ws.cell(current_row, 1, "Donuts Sold")
+        ws.cell(current_row, 1, "Munchkins Sold")
         ws.cell(current_row, 1).font = Font(bold=True)
         total_munchkin_sold = 0
         for day in range(7):
