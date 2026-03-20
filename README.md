@@ -81,4 +81,3 @@
 
  ---
 
- If you want, I can also add a sample SQL seed for creating a test user and automate a small smoke test for signup/login.
