@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 /// <reference types="vite/client" />
-import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck, Settings } from 'lucide-react';
+import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck, Settings, Bell } from 'lucide-react';
 // @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
@@ -28,6 +28,13 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     festival_week_multiplier: 1.2,
     festival_day_multiplier: 1.14,
     snowstorm_multiplier: 0.72,
+    target_waste_min_pct: 8,
+    target_waste_max_pct: 12,
+    auto_calendar_events_enabled: true,
+    notify_in_app: true,
+    notify_email: false,
+    notify_forecast_shift: true,
+    forecast_shift_threshold_pct: 12,
   };
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -78,6 +85,9 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [profileSettingsLoading, setProfileSettingsLoading] = useState(false);
   const [profileSettingsSaving, setProfileSettingsSaving] = useState(false);
   const [storeDisplayName, setStoreDisplayName] = useState('');
+  const [profileSettingsHistory, setProfileSettingsHistory] = useState<any[]>([]);
+  const [forecastExplainMeta, setForecastExplainMeta] = useState<any>(null);
+  const [notificationItems, setNotificationItems] = useState<Array<{ id: string; message: string; level: 'info' | 'warning' | 'critical' }>>([]);
 
   const reasonOptionsByOutlook: Record<'yes' | 'no' | 'maybe' | 'not_sure', Array<{ value: string; label: string }>> = {
     yes: [
@@ -183,6 +193,9 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         setProfileSettings({ ...defaultProfileSettings, ...result.settings });
       }
       setStoreDisplayName(result?.store_name || '');
+      if (result?.settings && result.settings.notify_in_app) {
+        buildInAppNotifications(result.settings, quickStatsData, forecastExplainMeta);
+      }
     } catch (err) {
       console.error('Failed to load profile settings:', err);
       setProfileSettings(defaultProfileSettings);
@@ -191,10 +204,74 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     }
   }
 
+  async function fetchProfileSettingsHistory() {
+    try {
+      const result = await apiFetch(`/forecast/settings/history?store_id=${storeId}&limit=10`);
+      setProfileSettingsHistory(result?.history || []);
+    } catch (err) {
+      console.error('Failed to load settings history:', err);
+      setProfileSettingsHistory([]);
+    }
+  }
+
   function handleProfileSettingChange(key: string, value: string) {
     const numeric = Number(value);
-    const safeValue = Number.isNaN(numeric) ? 1 : Math.max(0.5, Math.min(2.0, numeric));
+    if (Number.isNaN(numeric)) {
+      return;
+    }
+
+    let safeValue = numeric;
+    if (key === 'target_waste_min_pct' || key === 'target_waste_max_pct' || key === 'forecast_shift_threshold_pct') {
+      safeValue = Math.max(0, Math.min(40, numeric));
+    } else {
+      safeValue = Math.max(0.5, Math.min(2.0, numeric));
+    }
     setProfileSettings((prev: any) => ({ ...prev, [key]: safeValue }));
+  }
+
+  function handleProfileBooleanSettingChange(key: string, checked: boolean) {
+    setProfileSettings((prev: any) => ({ ...prev, [key]: checked }));
+  }
+
+  function buildInAppNotifications(settings: any, stats: any, explainMeta: any) {
+    if (!settings?.notify_in_app) {
+      setNotificationItems([]);
+      return;
+    }
+
+    const items: Array<{ id: string; message: string; level: 'info' | 'warning' | 'critical' }> = [];
+    const wastePct = Number(stats?.waste_percentage || 0);
+    const maxWaste = Number(settings?.target_waste_max_pct || 12);
+
+    if (wastePct > maxWaste) {
+      items.push({
+        id: 'waste-over-target',
+        message: `Waste is ${wastePct.toFixed(1)}%, above your target max ${maxWaste.toFixed(1)}%.`,
+        level: wastePct > maxWaste + 3 ? 'critical' : 'warning',
+      });
+    }
+
+    if (settings?.notify_forecast_shift && explainMeta?.applied_multiplier) {
+      const shiftPct = Math.abs((Number(explainMeta.applied_multiplier) - 1) * 100);
+      const threshold = Number(settings?.forecast_shift_threshold_pct || 12);
+      if (shiftPct >= threshold) {
+        items.push({
+          id: 'forecast-shift',
+          message: `Forecast shifted by ${shiftPct.toFixed(1)}% due to context/events (threshold ${threshold.toFixed(1)}%).`,
+          level: shiftPct >= threshold + 8 ? 'critical' : 'warning',
+        });
+      }
+    }
+
+    if (explainMeta?.confidence?.label === 'low') {
+      items.push({
+        id: 'low-confidence',
+        message: 'Forecast confidence is low. Consider reviewing manager context and recent imports.',
+        level: 'info',
+      });
+    }
+
+    setNotificationItems(items);
   }
 
   async function saveProfileSettings() {
@@ -205,9 +282,12 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         body: JSON.stringify({
           store_id: storeId,
           settings: profileSettings,
+          changed_by: username,
         }),
       });
       alert('Profile settings saved successfully.');
+      fetchProfileSettingsHistory();
+      buildInAppNotifications(profileSettings, quickStatsData, forecastExplainMeta);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to save settings';
       alert(errorMsg);
@@ -221,12 +301,34 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setProfileSettingsSaving(true);
       const result = await apiFetch('/forecast/settings/reset', {
         method: 'POST',
-        body: JSON.stringify({ store_id: storeId }),
+        body: JSON.stringify({ store_id: storeId, changed_by: username }),
       });
       setProfileSettings({ ...defaultProfileSettings, ...(result?.settings || {}) });
       alert('Forecast settings reset to defaults.');
+      fetchProfileSettingsHistory();
+      buildInAppNotifications({ ...defaultProfileSettings, ...(result?.settings || {}) }, quickStatsData, forecastExplainMeta);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to reset settings';
+      alert(errorMsg);
+    } finally {
+      setProfileSettingsSaving(false);
+    }
+  }
+
+  async function rollbackProfileSettings(historyId: number) {
+    try {
+      setProfileSettingsSaving(true);
+      const result = await apiFetch('/forecast/settings/rollback', {
+        method: 'POST',
+        body: JSON.stringify({ store_id: storeId, history_id: historyId, changed_by: username }),
+      });
+      if (result?.settings) {
+        setProfileSettings({ ...defaultProfileSettings, ...result.settings });
+      }
+      fetchProfileSettingsHistory();
+      alert('Settings restored from history.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Rollback failed';
       alert(errorMsg);
     } finally {
       setProfileSettingsSaving(false);
@@ -614,11 +716,16 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchWasteDirectoryProducts();
     fetchPendingSubmissions();
     fetchProfileSettings();
+    fetchProfileSettingsHistory();
   }, [storeId]);
 
   useEffect(() => {
     fetchProductionTrend();
   }, [storeId, productionFilter, productionView]);
+
+  useEffect(() => {
+    buildInAppNotifications(profileSettings, quickStatsData, forecastExplainMeta);
+  }, [profileSettings, quickStatsData, forecastExplainMeta]);
 
   // Use weekly data for charts if available, otherwise use placeholder
   const wasteData = wasteTrendData.length > 0 
@@ -810,6 +917,16 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       const result = await apiFetch(
         `/forecast/next-day?store_id=${storeId}&target_date=${targetDate}`
       );
+
+      setForecastExplainMeta({
+        applied_multiplier: result?.applied_multiplier,
+        context_multiplier: result?.context_multiplier,
+        calendar_multiplier: result?.calendar_multiplier,
+        context_expectation: result?.context_expectation,
+        context_reason: result?.context_reason,
+        confidence: result?.confidence,
+        target_waste_range_pct: result?.target_waste_range_pct,
+      });
       
       const count = result?.generated_products ?? Object.keys(result?.forecast || {}).length;
       alert(`Forecast generated successfully for ${count} products.`);
@@ -1002,6 +1119,12 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105 w-full sm:w-auto"
             style={{ backgroundColor: '#FF671F' }}
           >
+            <Bell size={16} />
+            {notificationItems.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#DA1884' }}>
+                {notificationItems.length}
+              </span>
+            )}
             <Download size={18} />
             Export Data
           </button>
@@ -1010,6 +1133,23 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         {/* Dashboard Content */}
         <div className="p-4 sm:p-6">
           <div className="mx-auto w-full max-w-6xl">
+          {notificationItems.length > 0 && (
+            <div className="mb-6 space-y-3">
+              {notificationItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl p-4"
+                  style={{
+                    backgroundColor: item.level === 'critical' ? '#FDECEC' : item.level === 'warning' ? '#FFF4E5' : '#ECF6FF',
+                    color: item.level === 'critical' ? '#B42318' : item.level === 'warning' ? '#9A6700' : '#175CD3',
+                  }}
+                >
+                  {item.message}
+                </div>
+              ))}
+            </div>
+          )}
+
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               {/* Greeting */}
@@ -1625,6 +1765,17 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                 Based on historical data, day of week, and recent trends, here's tomorrow's recommended production:
               </p>
 
+              {forecastExplainMeta && (
+                <div className="mb-6 p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm" style={{ color: '#8B7355' }}>
+                    <div>Applied Multiplier: <strong style={{ color: '#FF671F' }}>{Number(forecastExplainMeta.applied_multiplier || 1).toFixed(2)}x</strong></div>
+                    <div>Confidence: <strong style={{ color: '#FF671F' }}>{forecastExplainMeta?.confidence?.label || 'n/a'}</strong></div>
+                    <div>Context: {forecastExplainMeta.context_expectation || 'none'} / {forecastExplainMeta.context_reason || 'none'}</div>
+                    <div>Waste Target: {forecastExplainMeta?.target_waste_range_pct?.min ?? 8}% - {forecastExplainMeta?.target_waste_range_pct?.max ?? 12}%</div>
+                  </div>
+                </div>
+              )}
+
               {forecastLoading ? (
                 <div className="text-center py-8" style={{ color: '#8B7355' }}>Loading forecast...</div>
               ) : forecastPredictions.length === 0 ? (
@@ -1839,6 +1990,37 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                         <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Snowstorm Multiplier</div>
                         <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.snowstorm_multiplier} onChange={(e) => handleProfileSettingChange('snowstorm_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
                       </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Target Waste Min %</div>
+                        <input type="number" min="0" max="40" step="0.1" value={profileSettings.target_waste_min_pct} onChange={(e) => handleProfileSettingChange('target_waste_min_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Target Waste Max %</div>
+                        <input type="number" min="0" max="40" step="0.1" value={profileSettings.target_waste_max_pct} onChange={(e) => handleProfileSettingChange('target_waste_max_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Forecast Shift Alert Threshold %</div>
+                        <input type="number" min="1" max="60" step="0.5" value={profileSettings.forecast_shift_threshold_pct} onChange={(e) => handleProfileSettingChange('forecast_shift_threshold_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.auto_calendar_events_enabled} onChange={(e) => handleProfileBooleanSettingChange('auto_calendar_events_enabled', e.target.checked)} />
+                        Enable automatic calendar event uplift
+                      </label>
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.notify_in_app} onChange={(e) => handleProfileBooleanSettingChange('notify_in_app', e.target.checked)} />
+                        In-app notifications
+                      </label>
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.notify_email} onChange={(e) => handleProfileBooleanSettingChange('notify_email', e.target.checked)} />
+                        Email notifications (requires configured email provider)
+                      </label>
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.notify_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('notify_forecast_shift', e.target.checked)} />
+                        Alert on major forecast shifts
+                      </label>
                     </div>
 
                     <div className="mt-6">
@@ -1856,14 +2038,29 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
               </div>
 
               <div className="bg-white rounded-3xl p-8 shadow-lg">
-                <h4 className="mb-4" style={{ color: '#FF671F' }}>Suggested Additions</h4>
-                <ul className="space-y-2" style={{ color: '#8B7355' }}>
-                  <li>Target throwaway % range with guardrails and alerts.</li>
-                  <li>Forecast confidence level indicator (high/medium/low).</li>
-                  <li>Store hours + holiday schedule profile.</li>
-                  <li>Automatic event calendar import and one-click enable/disable.</li>
-                  <li>Audit trail showing who changed settings and when.</li>
-                </ul>
+                <h4 className="mb-4" style={{ color: '#FF671F' }}>Settings History & Rollback</h4>
+                {profileSettingsHistory.length === 0 ? (
+                  <div style={{ color: '#8B7355' }}>No history yet. Save settings to create snapshots.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {profileSettingsHistory.map((entry: any) => (
+                      <div key={entry.history_id} className="p-4 rounded-2xl flex items-center justify-between" style={{ backgroundColor: '#FFF8F0' }}>
+                        <div style={{ color: '#8B7355' }}>
+                          <div>Changed by: {entry.changed_by || 'manager'}</div>
+                          <div className="text-sm">{new Date(entry.created_at).toLocaleString()}</div>
+                        </div>
+                        <button
+                          onClick={() => rollbackProfileSettings(entry.history_id)}
+                          disabled={profileSettingsSaving}
+                          className="px-4 py-2 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
+                          style={{ backgroundColor: '#DA1884' }}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

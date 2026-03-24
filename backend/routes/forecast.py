@@ -12,6 +12,13 @@ DEFAULT_CUSTOM_MULTIPLIERS = {
     "festival_week_multiplier": 1.20,
     "festival_day_multiplier": 1.14,
     "snowstorm_multiplier": 0.72,
+    "target_waste_min_pct": 8.0,
+    "target_waste_max_pct": 12.0,
+    "auto_calendar_events_enabled": True,
+    "notify_in_app": True,
+    "notify_email": False,
+    "notify_forecast_shift": True,
+    "forecast_shift_threshold_pct": 12.0,
 }
 
 
@@ -31,11 +38,26 @@ def ensure_settings_table(cur):
             festival_week_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.20,
             festival_day_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.14,
             snowstorm_multiplier NUMERIC(5,2) NOT NULL DEFAULT 0.72,
+            target_waste_min_pct NUMERIC(5,2) NOT NULL DEFAULT 8.00,
+            target_waste_max_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00,
+            auto_calendar_events_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            notify_in_app BOOLEAN NOT NULL DEFAULT TRUE,
+            notify_email BOOLEAN NOT NULL DEFAULT FALSE,
+            notify_forecast_shift BOOLEAN NOT NULL DEFAULT TRUE,
+            forecast_shift_threshold_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
     )
+
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS target_waste_min_pct NUMERIC(5,2) NOT NULL DEFAULT 8.00;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS target_waste_max_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS auto_calendar_events_enabled BOOLEAN NOT NULL DEFAULT TRUE;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS notify_in_app BOOLEAN NOT NULL DEFAULT TRUE;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT FALSE;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS notify_forecast_shift BOOLEAN NOT NULL DEFAULT TRUE;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS forecast_shift_threshold_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00;")
 
 
 def get_store_custom_multipliers(cur, store_id: int) -> dict:
@@ -49,7 +71,14 @@ def get_store_custom_multipliers(cur, store_id: int) -> dict:
             unsure_multiplier,
             festival_week_multiplier,
             festival_day_multiplier,
-            snowstorm_multiplier
+            snowstorm_multiplier,
+            target_waste_min_pct,
+            target_waste_max_pct,
+            auto_calendar_events_enabled,
+            notify_in_app,
+            notify_email,
+            notify_forecast_shift,
+            forecast_shift_threshold_pct
         FROM public.forecast_multiplier_settings
         WHERE store_id = %s
         LIMIT 1
@@ -60,10 +89,13 @@ def get_store_custom_multipliers(cur, store_id: int) -> dict:
     if not row:
         return DEFAULT_CUSTOM_MULTIPLIERS.copy()
 
-    return {
-        key: float(row[key]) if row.get(key) is not None else default
-        for key, default in DEFAULT_CUSTOM_MULTIPLIERS.items()
-    }
+    settings = {}
+    for key, default in DEFAULT_CUSTOM_MULTIPLIERS.items():
+        if key in ("auto_calendar_events_enabled", "notify_in_app", "notify_email", "notify_forecast_shift"):
+            settings[key] = bool(row.get(key)) if row.get(key) is not None else bool(default)
+        else:
+            settings[key] = float(row.get(key)) if row.get(key) is not None else float(default)
+    return settings
 
 
 def nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
@@ -164,9 +196,11 @@ def next_day_forecast():
         custom_multipliers = get_store_custom_multipliers(cur, store_id)
 
         context_multiplier = 1.0
-        calendar_multiplier = get_calendar_multiplier(target_date)
+        calendar_multiplier = get_calendar_multiplier(target_date) if bool(custom_multipliers.get("auto_calendar_events_enabled", True)) else 1.0
         saved_expectation = None
         saved_reason = None
+        total_points_used = 0
+        products_with_history = 0
 
         cur.execute(
             """
@@ -228,11 +262,22 @@ def next_day_forecast():
             if not rows:
                 continue
 
+            points_used = len(rows)
+            total_points_used += points_used
+            products_with_history += 1
+
             sold_values = [int(r["sold"] or 0) for r in rows]
             avg_sold = max(int(round(sum(sold_values) / len(sold_values))), 0)
-            
+
             # Apply final multiplier based on context + seasonal calendar heuristics.
-            adjusted_quantity = max(int(round(avg_sold * final_multiplier)), 0)
+            demand_quantity = max(int(round(avg_sold * final_multiplier)), 0)
+
+            # Convert demand into recommended production using manager waste target.
+            min_waste = float(custom_multipliers.get("target_waste_min_pct", 8.0))
+            max_waste = float(custom_multipliers.get("target_waste_max_pct", 12.0))
+            target_waste_ratio = max(0.0, min(0.4, ((min_waste + max_waste) / 2.0) / 100.0))
+            divisor = max(0.6, 1.0 - target_waste_ratio)
+            adjusted_quantity = max(int(round(demand_quantity / divisor)), 0)
 
             cur.execute("""
                 INSERT INTO forecast_history
@@ -263,6 +308,15 @@ def next_day_forecast():
             "context_expectation": saved_expectation,
             "context_reason": saved_reason,
             "settings_multipliers": custom_multipliers,
+            "target_waste_range_pct": {
+                "min": float(custom_multipliers.get("target_waste_min_pct", 8.0)),
+                "max": float(custom_multipliers.get("target_waste_max_pct", 12.0)),
+            },
+            "confidence": {
+                "avg_points_per_product": round(total_points_used / products_with_history, 2) if products_with_history else 0,
+                "score": round(min(1.0, (total_points_used / max(1, products_with_history)) / 4.0), 2) if products_with_history else 0.0,
+                "label": "high" if products_with_history and (total_points_used / products_with_history) >= 3.5 else "medium" if products_with_history and (total_points_used / products_with_history) >= 2 else "low",
+            },
         })
     finally:
         return_connection(conn)
