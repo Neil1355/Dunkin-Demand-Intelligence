@@ -3,13 +3,33 @@ from models.db import get_connection, return_connection
 
 forecast_context_bp = Blueprint("forecast_context", __name__)
 
+
+def normalize_expectation(raw_expectation: str | None) -> str:
+    """Map UI values to DB-allowed expectation values."""
+    if not raw_expectation:
+        return "unsure"
+
+    normalized = raw_expectation.strip().lower()
+    mapping = {
+        "yes": "busy",
+        "busy": "busy",
+        "no": "slow",
+        "slow": "slow",
+        "slower": "slow",
+        "maybe": "unsure",
+        "not_sure": "unsure",
+        "unsure": "unsure",
+        "normal": "normal",
+    }
+    return mapping.get(normalized, "unsure")
+
 @forecast_context_bp.post("/")
 def save_forecast_context():
     data = request.get_json()
 
     store_id = data.get("store_id")
     target_date = data.get("target_date")
-    expectation = data.get("expectation")
+    expectation = normalize_expectation(data.get("expectation"))
     reason = data.get("reason")
     notes = data.get("notes")
 

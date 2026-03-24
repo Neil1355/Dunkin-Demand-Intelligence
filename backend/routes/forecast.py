@@ -48,8 +48,10 @@ def get_expectation_multiplier(expectation: str | None) -> float:
         "busy": 1.18,
         "maybe": 1.07,
         "not_sure": 1.00,
+        "unsure": 1.00,
         "normal": 1.00,
         "no": 0.86,
+        "slow": 0.86,
         "slower": 0.86,
     }
     return mapping.get(normalized, 1.0)
