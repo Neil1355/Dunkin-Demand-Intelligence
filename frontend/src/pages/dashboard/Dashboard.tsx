@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 /// <reference types="vite/client" />
-import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck, Settings } from 'lucide-react';
+import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck } from 'lucide-react';
 // @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
@@ -839,7 +839,6 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     { id: 'predictions', icon: TrendingUp, label: 'Predictions' },
     { id: 'history', icon: History, label: 'History' },
     { id: 'imported', icon: Download, label: 'Imported Data' },
-    { id: 'profile', icon: Settings, label: 'Profile & Settings' },
     { id: 'qr-code', icon: QrCode, label: 'QR Code' }
   ];
 

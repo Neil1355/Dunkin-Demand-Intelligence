@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, abort
 from models.user_model import create_user, authenticate_user, request_password_reset, validate_reset_token, reset_password
+from models.db import get_connection, return_connection
 from utils.validation import validate_json
 from utils.jwt_handler import create_access_token, create_refresh_token
 import os
@@ -75,7 +76,7 @@ def signup():
     user = result.get("user")
     # Generate JWT tokens with user and store info
     access_token = create_access_token({"sub": user["id"], "email": user["email"], "store_id": user.get("store_id", 12345)})
-    refresh_token = create_refresh_token({"sub": user["id"]})
+    refresh_token = create_refresh_token({"sub": user["id"], "email": user["email"], "store_id": user.get("store_id", 12345)})
     
     # Create response with httpOnly cookies
     response = jsonify({
@@ -125,7 +126,7 @@ def login():
     user = result.get("user")
     # Generate JWT tokens with user and store info
     access_token = create_access_token({"sub": user["id"], "email": user["email"], "store_id": user.get("store_id", 12345)})
-    refresh_token = create_refresh_token({"sub": user["id"]})
+    refresh_token = create_refresh_token({"sub": user["id"], "email": user["email"], "store_id": user.get("store_id", 12345)})
     
     # Create response with httpOnly cookies
     response = jsonify({
@@ -245,8 +246,29 @@ def refresh_access_token():
     if "error" in payload:
         return jsonify({"status": "error", "message": "Invalid refresh token"}), 401
     
-    # Generate new access token
-    new_access_token = create_access_token({"sub": payload.get("sub")})
+    user_id = payload.get("sub")
+    store_id = payload.get("store_id")
+    email = payload.get("email")
+
+    # Backward compatibility for older refresh tokens that may not include store_id/email.
+    if user_id and (store_id is None or email is None):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT email, store_id FROM users WHERE id = %s LIMIT 1", (user_id,))
+            row = cur.fetchone()
+            if row:
+                store_id = row.get("store_id", store_id)
+                email = row.get("email", email)
+        finally:
+            return_connection(conn)
+
+    # Generate new access token with store context for protected store routes.
+    new_access_token = create_access_token({
+        "sub": user_id,
+        "email": email,
+        "store_id": store_id,
+    })
     
     response = jsonify({"status": "success", "message": "Token refreshed"})
     response.set_cookie(

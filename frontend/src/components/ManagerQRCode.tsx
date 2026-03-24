@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { AlertCircle, Download, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
+import { apiFetch } from '../utils/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
@@ -48,16 +49,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
 
   const fetchStorePinStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/qr/store/${storeId}/pin/status`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const data: StorePinStatusResponse = await response.json();
+      const data: StorePinStatusResponse = await apiFetch(`/qr/store/${storeId}/pin/status`);
       setPinStatus(data);
     } catch (err) {
       console.error('Failed to fetch PIN status:', err);
@@ -69,24 +61,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     setError(null);
     setSuccessMessage(null);
     try {
-      const url = `${API_BASE}/qr/store/${storeId}`;
-      console.log('Fetching QR from:', url);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Send cookies for authentication
-      });
-
-      console.log('QR Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('QR Error response:', errorText);
-        throw new Error(`Failed to fetch QR code: ${response.status} ${response.statusText}`);
-      }
-
-      const data: QRCodeResponse = await response.json();
+      const data: QRCodeResponse = await apiFetch(`/qr/store/${storeId}`);
       setQrCode(data);
       
       setSuccessMessage(`QR Code ${data.status === 'created' ? 'created' : 'loaded'} successfully`);
@@ -101,15 +76,7 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
 
   const checkQRStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/qr/status/${storeId}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Send cookies for authentication
-      });
-
-      if (!response.ok) throw new Error('Failed to check status');
-
-      const data: QRStatusResponse = await response.json();
+      const data: QRStatusResponse = await apiFetch(`/qr/status/${storeId}`);
       setQrStatus(data);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to check status';
@@ -180,17 +147,9 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
     setError(null);
     setSuccessMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/qr/regenerate/${storeId}`, {
+      const data: QRCodeResponse = await apiFetch(`/qr/regenerate/${storeId}`, {
         method: 'POST',
-        credentials: 'include', // Send cookies for authentication
-        headers: { 'Content-Type': 'application/json' },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to regenerate QR code');
-      }
-
-      const data: QRCodeResponse = await response.json();
       setQrCode(data);
 
       setSuccessMessage('QR code regenerated successfully');
@@ -223,20 +182,13 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
 
     try {
       setUpdatingPin(true);
-      const response = await fetch(`${API_BASE}/qr/store/${storeId}/pin/change`, {
+      await apiFetch(`/qr/store/${storeId}/pin/change`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           current_password: currentPassword,
           new_pin: newPin,
         }),
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to update PIN');
-      }
 
       setCurrentPassword('');
       setNewPin('');

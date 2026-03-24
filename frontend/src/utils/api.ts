@@ -2,20 +2,31 @@
 const API_BASE =
   import.meta.env.VITE_API_URL || "https://dunkin-demand-intelligence.onrender.com/api/v1";
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  // Ensure path starts with /
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  
-  const res = await fetch(`${API_BASE}${normalizedPath}`, {
+async function fetchWithCredentials(path: string, options: RequestInit = {}) {
+  return fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...(options.headers || {}),
     },
-    // Required for set-cookie headers to work across domains
-    credentials: "include", 
-    mode: 'cors'
+    credentials: "include",
+    mode: "cors",
   });
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}) {
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  let res = await fetchWithCredentials(normalizedPath, options);
+
+  // Attempt one refresh for expired/rotated sessions, then retry original request once.
+  if (res.status === 401 && !normalizedPath.startsWith('/auth/')) {
+    const refreshRes = await fetchWithCredentials('/auth/refresh', { method: 'POST' });
+    if (refreshRes.ok) {
+      res = await fetchWithCredentials(normalizedPath, options);
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text();
