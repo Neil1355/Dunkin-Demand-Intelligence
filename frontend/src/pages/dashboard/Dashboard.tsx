@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 /// <reference types="vite/client" />
-import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck, Settings, Bell } from 'lucide-react';
+import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck, Settings } from 'lucide-react';
 // @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
@@ -91,6 +91,16 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [profileSettingsHistory, setProfileSettingsHistory] = useState<any[]>([]);
   const [forecastExplainMeta, setForecastExplainMeta] = useState<any>(null);
   const [notificationItems, setNotificationItems] = useState<Array<{ id: string; message: string; level: 'info' | 'warning' | 'critical' }>>([]);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileSection, setProfileSection] = useState<'profile' | 'multipliers' | 'notifications' | 'privacy' | 'history'>('profile');
+  const [profileInfoSaving, setProfileInfoSaving] = useState(false);
+  const [managerProfile, setManagerProfile] = useState({
+    manager_name: username || '',
+    store_name: '',
+    store_address: '',
+    store_number: String(storeId || ''),
+  });
+  const sidebarOpenedAtRef = useRef<number>(0);
 
   const reasonOptionsByOutlook: Record<'yes' | 'no' | 'maybe' | 'not_sure', Array<{ value: string; label: string }>> = {
     yes: [
@@ -204,6 +214,30 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setProfileSettings(defaultProfileSettings);
     } finally {
       setProfileSettingsLoading(false);
+    }
+  }
+
+  async function fetchManagerProfile() {
+    try {
+      const result = await apiFetch(`/forecast/settings/profile?store_id=${storeId}`);
+      const nextProfile = {
+        manager_name: String(result?.manager_name || username || ''),
+        store_name: String(result?.store_name || storeDisplayName || ''),
+        store_address: String(result?.store_address || ''),
+        store_number: String(result?.store_number || storeId),
+      };
+      setManagerProfile(nextProfile);
+      if (nextProfile.store_name) {
+        setStoreDisplayName(nextProfile.store_name);
+      }
+    } catch (err) {
+      console.error('Failed to load manager profile:', err);
+      setManagerProfile({
+        manager_name: username || '',
+        store_name: storeDisplayName || '',
+        store_address: '',
+        store_number: String(storeId),
+      });
     }
   }
 
@@ -335,6 +369,30 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       alert(errorMsg);
     } finally {
       setProfileSettingsSaving(false);
+    }
+  }
+
+  async function saveManagerProfile() {
+    try {
+      setProfileInfoSaving(true);
+      await apiFetch('/forecast/settings/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          store_id: storeId,
+          manager_name: managerProfile.manager_name,
+          store_name: managerProfile.store_name,
+          store_address: managerProfile.store_address,
+        }),
+      });
+      if (managerProfile.store_name) {
+        setStoreDisplayName(managerProfile.store_name);
+      }
+      alert('Profile updated successfully.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update profile';
+      alert(errorMsg);
+    } finally {
+      setProfileInfoSaving(false);
     }
   }
 
@@ -720,7 +778,16 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchPendingSubmissions();
     fetchProfileSettings();
     fetchProfileSettingsHistory();
+    fetchManagerProfile();
   }, [storeId]);
+
+  useEffect(() => {
+    setManagerProfile((prev) => ({
+      ...prev,
+      manager_name: prev.manager_name || username || '',
+      store_number: String(storeId || ''),
+    }));
+  }, [username, storeId]);
 
   useEffect(() => {
     fetchProductionTrend();
@@ -775,6 +842,37 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     { id: 'profile', icon: Settings, label: 'Profile & Settings' },
     { id: 'qr-code', icon: QrCode, label: 'QR Code' }
   ];
+
+  const managerInitial = (managerProfile.manager_name || username || 'M').trim().charAt(0).toUpperCase() || 'M';
+
+  const openProfileSection = (section: 'profile' | 'multipliers' | 'notifications' | 'privacy' | 'history') => {
+    setProfileSection(section);
+    setActiveTab('profile');
+    setProfileMenuOpen(false);
+  };
+
+  const toggleSidebar = (e?: React.MouseEvent | React.TouchEvent) => {
+    e?.stopPropagation();
+    if (!sidebarOpen) {
+      sidebarOpenedAtRef.current = Date.now();
+    }
+    setSidebarOpen((prev) => !prev);
+  };
+
+  const handleSidebarBackdropClose = () => {
+    const elapsed = Date.now() - sidebarOpenedAtRef.current;
+    if (elapsed < 250) {
+      return;
+    }
+    setSidebarOpen(false);
+  };
+
+  const handleNavItemClick = (tabId: string) => {
+    setActiveTab(tabId);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
 
   const handleAddItem = async (type: 'donut' | 'munchkin') => {
     if (!newItemName.trim()) return;
@@ -1073,7 +1171,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleNavItemClick(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${activeTab === item.id ? 'bg-white' : 'hover:bg-white/20'
                   }`}
                 style={{ color: activeTab === item.id ? '#DA1884' : 'white' }}
@@ -1095,8 +1193,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/40 z-20 lg:hidden transition-opacity duration-200"
+          onClick={handleSidebarBackdropClose}
         ></div>
       )}
 
@@ -1106,7 +1204,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         <div className="bg-white shadow-sm p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onMouseDown={(e) => toggleSidebar(e)}
+              onTouchStart={(e) => toggleSidebar(e)}
               className="p-2 rounded-lg hover:bg-gray-100 transition-all"
             >
               {sidebarOpen ? <X size={24} style={{ color: '#FF671F' }} /> : <Menu size={24} style={{ color: '#FF671F' }} />}
@@ -1117,20 +1216,59 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             </div>
           </div>
 
-          <button
-            onClick={handleExportData}
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105 w-full sm:w-auto"
-            style={{ backgroundColor: '#FF671F' }}
-          >
-            <Bell size={16} />
-            {notificationItems.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: '#DA1884' }}>
-                {notificationItems.length}
-              </span>
-            )}
-            <Download size={18} />
-            Export Data
-          </button>
+          <div className="relative w-full sm:w-auto flex items-center justify-end gap-3">
+            <button
+              onClick={handleExportData}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-full text-white transition-all hover:scale-105 w-full sm:w-auto"
+              style={{ backgroundColor: '#FF671F' }}
+            >
+              <Download size={18} />
+              Export Data
+            </button>
+
+            <button
+              onClick={() => setProfileMenuOpen((prev) => !prev)}
+              className="relative w-10 h-10 rounded-full text-white font-semibold flex items-center justify-center hover:scale-105 transition-transform"
+              style={{ backgroundColor: '#DA1884' }}
+              aria-label="Open profile menu"
+            >
+              {managerInitial}
+              {notificationItems.length > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] leading-[18px] text-center"
+                  style={{ backgroundColor: '#FF671F', color: 'white' }}
+                >
+                  {notificationItems.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              className={`fixed inset-0 z-10 transition-opacity duration-200 ${profileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+              onClick={() => setProfileMenuOpen(false)}
+              aria-label="Close profile menu"
+            />
+            <div
+              className={`absolute right-0 top-12 z-20 w-64 rounded-2xl shadow-xl border bg-white p-2 transition-all duration-200 origin-top-right ${profileMenuOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 -translate-y-1 scale-95 pointer-events-none'}`}
+              style={{ borderColor: '#F2E8DC' }}
+            >
+              <button onClick={() => openProfileSection('profile')} className="w-full text-left px-3 py-2 rounded-xl hover:bg-orange-50 transition-colors" style={{ color: '#8B7355' }}>
+                Profile
+              </button>
+              <button onClick={() => openProfileSection('multipliers')} className="w-full text-left px-3 py-2 rounded-xl hover:bg-orange-50 transition-colors" style={{ color: '#8B7355' }}>
+                Forecast Multipliers
+              </button>
+              <button onClick={() => openProfileSection('notifications')} className="w-full text-left px-3 py-2 rounded-xl hover:bg-orange-50 transition-colors" style={{ color: '#8B7355' }}>
+                Notifications
+              </button>
+              <button onClick={() => openProfileSection('privacy')} className="w-full text-left px-3 py-2 rounded-xl hover:bg-orange-50 transition-colors" style={{ color: '#8B7355' }}>
+                Privacy & QR Settings
+              </button>
+              <button onClick={() => openProfileSection('history')} className="w-full text-left px-3 py-2 rounded-xl hover:bg-orange-50 transition-colors" style={{ color: '#8B7355' }}>
+                Settings History
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Dashboard Content */}
@@ -1930,152 +2068,262 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           )}
 
           {activeTab === 'profile' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-3xl p-8 shadow-lg">
-                <div className="flex items-start justify-between gap-4 mb-6">
-                  <div>
-                    <h3 style={{ color: '#FF671F' }}>Manager Profile & Forecast Settings</h3>
-                    <p className="mt-2" style={{ color: '#8B7355' }}>
-                      Tune demand multipliers for your store and reset safely if needed.
-                    </p>
-                  </div>
-                  <button
-                    onClick={resetProfileSettings}
-                    disabled={profileSettingsSaving}
-                    className="px-4 py-2 rounded-full border-2 transition-all disabled:opacity-50"
-                    style={{ borderColor: '#DA1884', color: '#DA1884' }}
-                  >
-                    Reset To Defaults
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                  <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
-                    <div className="text-sm" style={{ color: '#8B7355' }}>Manager Name</div>
-                    <div style={{ color: '#FF671F' }}>{username}</div>
-                  </div>
-                  <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
-                    <div className="text-sm" style={{ color: '#8B7355' }}>Store</div>
-                    <div style={{ color: '#FF671F' }}>{storeDisplayName || `Store #${storeId}`}</div>
+            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-lg">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-1">
+                  <h3 style={{ color: '#FF671F' }}>Profile & Settings</h3>
+                  <p className="mt-2 mb-4 text-sm" style={{ color: '#8B7355' }}>
+                    Use quick sections to manage account, forecast controls, notifications, and privacy.
+                  </p>
+                  <div className="space-y-2">
+                    <button onClick={() => setProfileSection('profile')} className="w-full text-left px-4 py-3 rounded-2xl" style={{ backgroundColor: profileSection === 'profile' ? '#FFF0E2' : '#FFF8F0', color: '#8B7355' }}>Profile</button>
+                    <button onClick={() => setProfileSection('multipliers')} className="w-full text-left px-4 py-3 rounded-2xl" style={{ backgroundColor: profileSection === 'multipliers' ? '#FFF0E2' : '#FFF8F0', color: '#8B7355' }}>Multipliers</button>
+                    <button onClick={() => setProfileSection('notifications')} className="w-full text-left px-4 py-3 rounded-2xl" style={{ backgroundColor: profileSection === 'notifications' ? '#FFF0E2' : '#FFF8F0', color: '#8B7355' }}>Notifications</button>
+                    <button onClick={() => setProfileSection('privacy')} className="w-full text-left px-4 py-3 rounded-2xl" style={{ backgroundColor: profileSection === 'privacy' ? '#FFF0E2' : '#FFF8F0', color: '#8B7355' }}>Privacy & QR</button>
+                    <button onClick={() => setProfileSection('history')} className="w-full text-left px-4 py-3 rounded-2xl" style={{ backgroundColor: profileSection === 'history' ? '#FFF0E2' : '#FFF8F0', color: '#8B7355' }}>Settings History</button>
                   </div>
                 </div>
 
-                {profileSettingsLoading ? (
-                  <div style={{ color: '#8B7355' }}>Loading settings...</div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Busy Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.busy_multiplier} onChange={(e) => handleProfileSettingChange('busy_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Normal Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.normal_multiplier} onChange={(e) => handleProfileSettingChange('normal_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Slow Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.slow_multiplier} onChange={(e) => handleProfileSettingChange('slow_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Not Sure Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.unsure_multiplier} onChange={(e) => handleProfileSettingChange('unsure_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Festival Week Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.festival_week_multiplier} onChange={(e) => handleProfileSettingChange('festival_week_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Festival Day Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.festival_day_multiplier} onChange={(e) => handleProfileSettingChange('festival_day_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Snowstorm Multiplier</div>
-                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.snowstorm_multiplier} onChange={(e) => handleProfileSettingChange('snowstorm_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Target Waste Min %</div>
-                        <input type="number" min="0" max="40" step="0.1" value={profileSettings.target_waste_min_pct} onChange={(e) => handleProfileSettingChange('target_waste_min_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Target Waste Max %</div>
-                        <input type="number" min="0" max="40" step="0.1" value={profileSettings.target_waste_max_pct} onChange={(e) => handleProfileSettingChange('target_waste_max_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
-                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Forecast Shift Alert Threshold %</div>
-                        <input type="number" min="1" max="60" step="0.5" value={profileSettings.forecast_shift_threshold_pct} onChange={(e) => handleProfileSettingChange('forecast_shift_threshold_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.auto_calendar_events_enabled} onChange={(e) => handleProfileBooleanSettingChange('auto_calendar_events_enabled', e.target.checked)} />
-                        Enable automatic calendar event uplift
-                      </label>
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.notify_in_app} onChange={(e) => handleProfileBooleanSettingChange('notify_in_app', e.target.checked)} />
-                        In-app notifications
-                      </label>
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.notify_email} onChange={(e) => handleProfileBooleanSettingChange('notify_email', e.target.checked)} />
-                        Email notifications (requires configured email provider)
-                      </label>
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.notify_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('notify_forecast_shift', e.target.checked)} />
-                        Alert on major forecast shifts
-                      </label>
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.email_include_waste} onChange={(e) => handleProfileBooleanSettingChange('email_include_waste', e.target.checked)} />
-                        Include waste-target breaches in email
-                      </label>
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.email_include_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('email_include_forecast_shift', e.target.checked)} />
-                        Include major forecast shifts in email
-                      </label>
-                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
-                        <input type="checkbox" checked={!!profileSettings.email_include_low_confidence} onChange={(e) => handleProfileBooleanSettingChange('email_include_low_confidence', e.target.checked)} />
-                        Include low-confidence warnings in email
-                      </label>
-                    </div>
-
-                    <div className="mt-6">
-                      <button
-                        onClick={saveProfileSettings}
-                        disabled={profileSettingsSaving}
-                        className="px-6 py-3 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
-                        style={{ backgroundColor: '#FF671F' }}
-                      >
-                        {profileSettingsSaving ? 'Saving...' : 'Save Settings'}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="bg-white rounded-3xl p-8 shadow-lg">
-                <h4 className="mb-4" style={{ color: '#FF671F' }}>Settings History & Rollback</h4>
-                {profileSettingsHistory.length === 0 ? (
-                  <div style={{ color: '#8B7355' }}>No history yet. Save settings to create snapshots.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {profileSettingsHistory.map((entry: any) => (
-                      <div key={entry.history_id} className="p-4 rounded-2xl flex items-center justify-between" style={{ backgroundColor: '#FFF8F0' }}>
-                        <div style={{ color: '#8B7355' }}>
-                          <div>Changed by: {entry.changed_by || 'manager'}</div>
-                          <div className="text-sm">{new Date(entry.created_at).toLocaleString()}</div>
+                <div className="lg:col-span-3">
+                  {profileSection === 'profile' && (
+                    <div>
+                      <h4 className="mb-4" style={{ color: '#FF671F' }}>Manager Account</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: '#8B7355' }}>Manager Name</label>
+                          <input
+                            type="text"
+                            value={managerProfile.manager_name}
+                            onChange={(e) => setManagerProfile((prev) => ({ ...prev, manager_name: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl border"
+                            style={{ borderColor: '#F2E8DC' }}
+                          />
                         </div>
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: '#8B7355' }}>Store Name</label>
+                          <input
+                            type="text"
+                            value={managerProfile.store_name}
+                            onChange={(e) => setManagerProfile((prev) => ({ ...prev, store_name: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl border"
+                            style={{ borderColor: '#F2E8DC' }}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm mb-1" style={{ color: '#8B7355' }}>Store Address</label>
+                          <input
+                            type="text"
+                            value={managerProfile.store_address}
+                            onChange={(e) => setManagerProfile((prev) => ({ ...prev, store_address: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl border"
+                            style={{ borderColor: '#F2E8DC' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: '#8B7355' }}>Store Number</label>
+                          <input
+                            type="text"
+                            value={managerProfile.store_number}
+                            readOnly
+                            className="w-full px-3 py-2 rounded-xl border bg-gray-50"
+                            style={{ borderColor: '#F2E8DC', color: '#8B7355' }}
+                          />
+                          <div className="text-xs mt-1" style={{ color: '#8B7355' }}>
+                            Store number is locked to protect reporting and audit history.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-6">
                         <button
-                          onClick={() => rollbackProfileSettings(entry.history_id)}
-                          disabled={profileSettingsSaving}
-                          className="px-4 py-2 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
-                          style={{ backgroundColor: '#DA1884' }}
+                          onClick={saveManagerProfile}
+                          disabled={profileInfoSaving}
+                          className="px-6 py-3 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
+                          style={{ backgroundColor: '#FF671F' }}
                         >
-                          Restore
+                          {profileInfoSaving ? 'Saving...' : 'Save Profile'}
                         </button>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  )}
+
+                  {profileSection === 'multipliers' && (
+                    <div>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <h4 style={{ color: '#FF671F' }}>Forecast Multipliers</h4>
+                          <p className="text-sm" style={{ color: '#8B7355' }}>Adjust demand factors and waste target range.</p>
+                        </div>
+                        <button
+                          onClick={resetProfileSettings}
+                          disabled={profileSettingsSaving}
+                          className="px-4 py-2 rounded-full border-2 transition-all disabled:opacity-50"
+                          style={{ borderColor: '#DA1884', color: '#DA1884' }}
+                        >
+                          Reset To Defaults
+                        </button>
+                      </div>
+
+                      {profileSettingsLoading ? (
+                        <div style={{ color: '#8B7355' }}>Loading settings...</div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Busy Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.busy_multiplier} onChange={(e) => handleProfileSettingChange('busy_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Normal Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.normal_multiplier} onChange={(e) => handleProfileSettingChange('normal_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Slow Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.slow_multiplier} onChange={(e) => handleProfileSettingChange('slow_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Not Sure Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.unsure_multiplier} onChange={(e) => handleProfileSettingChange('unsure_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Festival Week Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.festival_week_multiplier} onChange={(e) => handleProfileSettingChange('festival_week_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Festival Day Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.festival_day_multiplier} onChange={(e) => handleProfileSettingChange('festival_day_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Snowstorm Multiplier</div>
+                              <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.snowstorm_multiplier} onChange={(e) => handleProfileSettingChange('snowstorm_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Target Waste Min %</div>
+                              <input type="number" min="0" max="40" step="0.1" value={profileSettings.target_waste_min_pct} onChange={(e) => handleProfileSettingChange('target_waste_min_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                            <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                              <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Target Waste Max %</div>
+                              <input type="number" min="0" max="40" step="0.1" value={profileSettings.target_waste_max_pct} onChange={(e) => handleProfileSettingChange('target_waste_max_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                            </div>
+                          </div>
+
+                          <div className="mt-6">
+                            <button
+                              onClick={saveProfileSettings}
+                              disabled={profileSettingsSaving}
+                              className="px-6 py-3 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
+                              style={{ backgroundColor: '#FF671F' }}
+                            >
+                              {profileSettingsSaving ? 'Saving...' : 'Save Multipliers'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {profileSection === 'notifications' && (
+                    <div>
+                      <h4 className="mb-4" style={{ color: '#FF671F' }}>Notification Preferences</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.notify_in_app} onChange={(e) => handleProfileBooleanSettingChange('notify_in_app', e.target.checked)} />
+                          In-app notifications
+                        </label>
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.notify_email} onChange={(e) => handleProfileBooleanSettingChange('notify_email', e.target.checked)} />
+                          Email notifications
+                        </label>
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.notify_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('notify_forecast_shift', e.target.checked)} />
+                          Alert on major forecast shifts
+                        </label>
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.auto_calendar_events_enabled} onChange={(e) => handleProfileBooleanSettingChange('auto_calendar_events_enabled', e.target.checked)} />
+                          Enable automatic calendar event uplift
+                        </label>
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.email_include_waste} onChange={(e) => handleProfileBooleanSettingChange('email_include_waste', e.target.checked)} />
+                          Include waste-target breaches in email
+                        </label>
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.email_include_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('email_include_forecast_shift', e.target.checked)} />
+                          Include major forecast shifts in email
+                        </label>
+                        <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                          <input type="checkbox" checked={!!profileSettings.email_include_low_confidence} onChange={(e) => handleProfileBooleanSettingChange('email_include_low_confidence', e.target.checked)} />
+                          Include low-confidence warnings in email
+                        </label>
+                        <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                          <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Forecast Shift Alert Threshold %</div>
+                          <input type="number" min="1" max="60" step="0.5" value={profileSettings.forecast_shift_threshold_pct} onChange={(e) => handleProfileSettingChange('forecast_shift_threshold_pct', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                        </div>
+                      </div>
+
+                      <div className="mt-6">
+                        <button
+                          onClick={saveProfileSettings}
+                          disabled={profileSettingsSaving}
+                          className="px-6 py-3 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
+                          style={{ backgroundColor: '#FF671F' }}
+                        >
+                          {profileSettingsSaving ? 'Saving...' : 'Save Notifications'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {profileSection === 'privacy' && (
+                    <div className="space-y-4">
+                      <h4 style={{ color: '#FF671F' }}>Privacy & QR Settings</h4>
+                      <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0', color: '#8B7355' }}>
+                        <div className="font-medium mb-1">QR Store PIN</div>
+                        <div className="text-sm">Change your QR store PIN from QR Code management. Password verification is required.</div>
+                        <button
+                          onClick={() => {
+                            setActiveTab('qr-code');
+                            setProfileMenuOpen(false);
+                          }}
+                          className="mt-3 px-4 py-2 rounded-full text-white"
+                          style={{ backgroundColor: '#DA1884' }}
+                        >
+                          Open QR Settings
+                        </button>
+                      </div>
+                      <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0', color: '#8B7355' }}>
+                        <div className="font-medium mb-1">Account Security</div>
+                        <div className="text-sm">Keep your login password confidential. Sensitive updates use password verification.</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {profileSection === 'history' && (
+                    <div>
+                      <h4 className="mb-4" style={{ color: '#FF671F' }}>Settings History & Rollback</h4>
+                      {profileSettingsHistory.length === 0 ? (
+                        <div style={{ color: '#8B7355' }}>No history yet. Save settings to create snapshots.</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {profileSettingsHistory.map((entry: any) => (
+                            <div key={entry.history_id} className="p-4 rounded-2xl flex items-center justify-between" style={{ backgroundColor: '#FFF8F0' }}>
+                              <div style={{ color: '#8B7355' }}>
+                                <div>Changed by: {entry.changed_by || 'manager'}</div>
+                                <div className="text-sm">{new Date(entry.created_at).toLocaleString()}</div>
+                              </div>
+                              <button
+                                onClick={() => rollbackProfileSettings(entry.history_id)}
+                                disabled={profileSettingsSaving}
+                                className="px-4 py-2 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
+                                style={{ backgroundColor: '#DA1884' }}
+                              >
+                                Restore
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

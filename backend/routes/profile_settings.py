@@ -1,5 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from models.db import get_connection, return_connection
+from utils.jwt_handler import require_auth
 import json
 
 forecast_settings_bp = Blueprint("forecast_settings", __name__)
@@ -133,6 +134,180 @@ def write_settings_snapshot(cur, store_id: int, changed_by: str | None, settings
     )
 
 
+def upsert_settings_row(cur, store_id: int, payload: dict):
+    params = {
+        "store_id": store_id,
+        "busy_multiplier": payload["busy_multiplier"],
+        "normal_multiplier": payload["normal_multiplier"],
+        "slow_multiplier": payload["slow_multiplier"],
+        "unsure_multiplier": payload["unsure_multiplier"],
+        "festival_week_multiplier": payload["festival_week_multiplier"],
+        "festival_day_multiplier": payload["festival_day_multiplier"],
+        "snowstorm_multiplier": payload["snowstorm_multiplier"],
+        "target_waste_min_pct": payload["target_waste_min_pct"],
+        "target_waste_max_pct": payload["target_waste_max_pct"],
+        "auto_calendar_events_enabled": payload["auto_calendar_events_enabled"],
+        "notify_in_app": payload["notify_in_app"],
+        "notify_email": payload["notify_email"],
+        "notify_forecast_shift": payload["notify_forecast_shift"],
+        "forecast_shift_threshold_pct": payload["forecast_shift_threshold_pct"],
+        "email_include_waste": payload["email_include_waste"],
+        "email_include_forecast_shift": payload["email_include_forecast_shift"],
+        "email_include_low_confidence": payload["email_include_low_confidence"],
+    }
+
+    cur.execute(
+        """
+        INSERT INTO forecast_multiplier_settings (
+            store_id,
+            busy_multiplier,
+            normal_multiplier,
+            slow_multiplier,
+            unsure_multiplier,
+            festival_week_multiplier,
+            festival_day_multiplier,
+            snowstorm_multiplier,
+            target_waste_min_pct,
+            target_waste_max_pct,
+            auto_calendar_events_enabled,
+            notify_in_app,
+            notify_email,
+            notify_forecast_shift,
+            forecast_shift_threshold_pct,
+            email_include_waste,
+            email_include_forecast_shift,
+            email_include_low_confidence,
+            updated_at
+        ) VALUES (
+            %(store_id)s,
+            %(busy_multiplier)s,
+            %(normal_multiplier)s,
+            %(slow_multiplier)s,
+            %(unsure_multiplier)s,
+            %(festival_week_multiplier)s,
+            %(festival_day_multiplier)s,
+            %(snowstorm_multiplier)s,
+            %(target_waste_min_pct)s,
+            %(target_waste_max_pct)s,
+            %(auto_calendar_events_enabled)s,
+            %(notify_in_app)s,
+            %(notify_email)s,
+            %(notify_forecast_shift)s,
+            %(forecast_shift_threshold_pct)s,
+            %(email_include_waste)s,
+            %(email_include_forecast_shift)s,
+            %(email_include_low_confidence)s,
+            NOW()
+        )
+        ON CONFLICT (store_id)
+        DO UPDATE SET
+            busy_multiplier = EXCLUDED.busy_multiplier,
+            normal_multiplier = EXCLUDED.normal_multiplier,
+            slow_multiplier = EXCLUDED.slow_multiplier,
+            unsure_multiplier = EXCLUDED.unsure_multiplier,
+            festival_week_multiplier = EXCLUDED.festival_week_multiplier,
+            festival_day_multiplier = EXCLUDED.festival_day_multiplier,
+            snowstorm_multiplier = EXCLUDED.snowstorm_multiplier,
+            target_waste_min_pct = EXCLUDED.target_waste_min_pct,
+            target_waste_max_pct = EXCLUDED.target_waste_max_pct,
+            auto_calendar_events_enabled = EXCLUDED.auto_calendar_events_enabled,
+            notify_in_app = EXCLUDED.notify_in_app,
+            notify_email = EXCLUDED.notify_email,
+            notify_forecast_shift = EXCLUDED.notify_forecast_shift,
+            forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
+            email_include_waste = EXCLUDED.email_include_waste,
+            email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
+            email_include_low_confidence = EXCLUDED.email_include_low_confidence,
+            updated_at = NOW()
+        """,
+        params,
+    )
+
+
+@forecast_settings_bp.get("/profile")
+@require_auth
+def get_manager_profile():
+    requested_store_id = request.args.get("store_id", type=int)
+    user_store_id = int(g.store_id) if getattr(g, "store_id", None) is not None else None
+    if user_store_id is None:
+        return jsonify({"error": "Unauthorized"}), 401
+    if requested_store_id and requested_store_id != user_store_id:
+        return jsonify({"error": "Unauthorized access to this store"}), 403
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                u.name AS manager_name,
+                s.id AS store_number,
+                s.name AS store_name,
+                COALESCE(s.address, s.location, '') AS store_address
+            FROM stores s
+            LEFT JOIN users u ON u.id = %s
+            WHERE s.id = %s
+            LIMIT 1
+            """,
+            (g.user_id, user_store_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Store not found"}), 404
+
+        return jsonify(
+            {
+                "store_id": user_store_id,
+                "manager_name": row.get("manager_name") or "",
+                "store_number": row.get("store_number"),
+                "store_name": row.get("store_name") or "",
+                "store_address": row.get("store_address") or "",
+            }
+        ), 200
+    finally:
+        return_connection(conn)
+
+
+@forecast_settings_bp.put("/profile")
+@require_auth
+def update_manager_profile():
+    data = request.get_json() or {}
+    requested_store_id = data.get("store_id")
+    user_store_id = int(g.store_id) if getattr(g, "store_id", None) is not None else None
+    if user_store_id is None:
+        return jsonify({"error": "Unauthorized"}), 401
+    if requested_store_id and int(requested_store_id) != user_store_id:
+        return jsonify({"error": "Unauthorized access to this store"}), 403
+
+    manager_name = str(data.get("manager_name") or "").strip()
+    store_name = str(data.get("store_name") or "").strip()
+    store_address = str(data.get("store_address") or "").strip()
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+
+        if manager_name:
+            cur.execute("UPDATE users SET name = %s WHERE id = %s", (manager_name, g.user_id))
+
+        cur.execute(
+            """
+            UPDATE stores
+            SET
+                name = COALESCE(NULLIF(%s, ''), name),
+                address = %s,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (store_name, store_address, user_store_id),
+        )
+
+        conn.commit()
+        return jsonify({"message": "Profile updated successfully"}), 200
+    finally:
+        return_connection(conn)
+
+
 @forecast_settings_bp.get("/")
 def get_forecast_settings():
     store_id = request.args.get("store_id", type=int)
@@ -210,71 +385,7 @@ def update_forecast_settings():
         cur = conn.cursor()
         ensure_settings_table(cur)
 
-        cur.execute(
-            """
-            INSERT INTO forecast_multiplier_settings (
-                store_id,
-                busy_multiplier,
-                normal_multiplier,
-                slow_multiplier,
-                unsure_multiplier,
-                festival_week_multiplier,
-                festival_day_multiplier,
-                snowstorm_multiplier,
-                target_waste_min_pct,
-                target_waste_max_pct,
-                auto_calendar_events_enabled,
-                notify_in_app,
-                notify_email,
-                notify_forecast_shift,
-                forecast_shift_threshold_pct,
-                email_include_waste,
-                email_include_forecast_shift,
-                email_include_low_confidence,
-                updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT (store_id)
-            DO UPDATE SET
-                busy_multiplier = EXCLUDED.busy_multiplier,
-                normal_multiplier = EXCLUDED.normal_multiplier,
-                slow_multiplier = EXCLUDED.slow_multiplier,
-                unsure_multiplier = EXCLUDED.unsure_multiplier,
-                festival_week_multiplier = EXCLUDED.festival_week_multiplier,
-                festival_day_multiplier = EXCLUDED.festival_day_multiplier,
-                snowstorm_multiplier = EXCLUDED.snowstorm_multiplier,
-                target_waste_min_pct = EXCLUDED.target_waste_min_pct,
-                target_waste_max_pct = EXCLUDED.target_waste_max_pct,
-                auto_calendar_events_enabled = EXCLUDED.auto_calendar_events_enabled,
-                notify_in_app = EXCLUDED.notify_in_app,
-                notify_email = EXCLUDED.notify_email,
-                notify_forecast_shift = EXCLUDED.notify_forecast_shift,
-                forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
-                email_include_waste = EXCLUDED.email_include_waste,
-                email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
-                email_include_low_confidence = EXCLUDED.email_include_low_confidence,
-                updated_at = NOW()
-            """,
-            (
-                store_id,
-                payload["busy_multiplier"],
-                payload["normal_multiplier"],
-                payload["slow_multiplier"],
-                payload["unsure_multiplier"],
-                payload["festival_week_multiplier"],
-                payload["festival_day_multiplier"],
-                payload["snowstorm_multiplier"],
-                payload["target_waste_min_pct"],
-                payload["target_waste_max_pct"],
-                payload["auto_calendar_events_enabled"],
-                payload["notify_in_app"],
-                payload["notify_email"],
-                payload["notify_forecast_shift"],
-                payload["forecast_shift_threshold_pct"],
-                payload["email_include_waste"],
-                payload["email_include_forecast_shift"],
-                payload["email_include_low_confidence"],
-            ),
-        )
+        upsert_settings_row(cur, int(store_id), payload)
 
         write_settings_snapshot(cur, store_id, changed_by, payload)
 
@@ -299,71 +410,7 @@ def reset_forecast_settings():
         cur = conn.cursor()
         ensure_settings_table(cur)
 
-        cur.execute(
-            """
-            INSERT INTO forecast_multiplier_settings (
-                store_id,
-                busy_multiplier,
-                normal_multiplier,
-                slow_multiplier,
-                unsure_multiplier,
-                festival_week_multiplier,
-                festival_day_multiplier,
-                snowstorm_multiplier,
-                target_waste_min_pct,
-                target_waste_max_pct,
-                auto_calendar_events_enabled,
-                notify_in_app,
-                notify_email,
-                notify_forecast_shift,
-                forecast_shift_threshold_pct,
-                email_include_waste,
-                email_include_forecast_shift,
-                email_include_low_confidence,
-                updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT (store_id)
-            DO UPDATE SET
-                busy_multiplier = EXCLUDED.busy_multiplier,
-                normal_multiplier = EXCLUDED.normal_multiplier,
-                slow_multiplier = EXCLUDED.slow_multiplier,
-                unsure_multiplier = EXCLUDED.unsure_multiplier,
-                festival_week_multiplier = EXCLUDED.festival_week_multiplier,
-                festival_day_multiplier = EXCLUDED.festival_day_multiplier,
-                snowstorm_multiplier = EXCLUDED.snowstorm_multiplier,
-                target_waste_min_pct = EXCLUDED.target_waste_min_pct,
-                target_waste_max_pct = EXCLUDED.target_waste_max_pct,
-                auto_calendar_events_enabled = EXCLUDED.auto_calendar_events_enabled,
-                notify_in_app = EXCLUDED.notify_in_app,
-                notify_email = EXCLUDED.notify_email,
-                notify_forecast_shift = EXCLUDED.notify_forecast_shift,
-                forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
-                email_include_waste = EXCLUDED.email_include_waste,
-                email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
-                email_include_low_confidence = EXCLUDED.email_include_low_confidence,
-                updated_at = NOW()
-            """,
-            (
-                store_id,
-                DEFAULT_MULTIPLIERS["busy_multiplier"],
-                DEFAULT_MULTIPLIERS["normal_multiplier"],
-                DEFAULT_MULTIPLIERS["slow_multiplier"],
-                DEFAULT_MULTIPLIERS["unsure_multiplier"],
-                DEFAULT_MULTIPLIERS["festival_week_multiplier"],
-                DEFAULT_MULTIPLIERS["festival_day_multiplier"],
-                DEFAULT_MULTIPLIERS["snowstorm_multiplier"],
-                DEFAULT_MULTIPLIERS["target_waste_min_pct"],
-                DEFAULT_MULTIPLIERS["target_waste_max_pct"],
-                DEFAULT_MULTIPLIERS["auto_calendar_events_enabled"],
-                DEFAULT_MULTIPLIERS["notify_in_app"],
-                DEFAULT_MULTIPLIERS["notify_email"],
-                DEFAULT_MULTIPLIERS["notify_forecast_shift"],
-                DEFAULT_MULTIPLIERS["forecast_shift_threshold_pct"],
-                DEFAULT_MULTIPLIERS["email_include_waste"],
-                DEFAULT_MULTIPLIERS["email_include_forecast_shift"],
-                DEFAULT_MULTIPLIERS["email_include_low_confidence"],
-            ),
-        )
+        upsert_settings_row(cur, int(store_id), DEFAULT_MULTIPLIERS)
 
         write_settings_snapshot(cur, store_id, changed_by, DEFAULT_MULTIPLIERS)
 
@@ -434,71 +481,7 @@ def rollback_settings():
 
         payload = normalize_settings(settings_json)
 
-        cur.execute(
-            """
-            INSERT INTO forecast_multiplier_settings (
-                store_id,
-                busy_multiplier,
-                normal_multiplier,
-                slow_multiplier,
-                unsure_multiplier,
-                festival_week_multiplier,
-                festival_day_multiplier,
-                snowstorm_multiplier,
-                target_waste_min_pct,
-                target_waste_max_pct,
-                auto_calendar_events_enabled,
-                notify_in_app,
-                notify_email,
-                notify_forecast_shift,
-                forecast_shift_threshold_pct,
-                email_include_waste,
-                email_include_forecast_shift,
-                email_include_low_confidence,
-                updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-            ON CONFLICT (store_id)
-            DO UPDATE SET
-                busy_multiplier = EXCLUDED.busy_multiplier,
-                normal_multiplier = EXCLUDED.normal_multiplier,
-                slow_multiplier = EXCLUDED.slow_multiplier,
-                unsure_multiplier = EXCLUDED.unsure_multiplier,
-                festival_week_multiplier = EXCLUDED.festival_week_multiplier,
-                festival_day_multiplier = EXCLUDED.festival_day_multiplier,
-                snowstorm_multiplier = EXCLUDED.snowstorm_multiplier,
-                target_waste_min_pct = EXCLUDED.target_waste_min_pct,
-                target_waste_max_pct = EXCLUDED.target_waste_max_pct,
-                auto_calendar_events_enabled = EXCLUDED.auto_calendar_events_enabled,
-                notify_in_app = EXCLUDED.notify_in_app,
-                notify_email = EXCLUDED.notify_email,
-                notify_forecast_shift = EXCLUDED.notify_forecast_shift,
-                forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
-                email_include_waste = EXCLUDED.email_include_waste,
-                email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
-                email_include_low_confidence = EXCLUDED.email_include_low_confidence,
-                updated_at = NOW()
-            """,
-            (
-                store_id,
-                payload["busy_multiplier"],
-                payload["normal_multiplier"],
-                payload["slow_multiplier"],
-                payload["unsure_multiplier"],
-                payload["festival_week_multiplier"],
-                payload["festival_day_multiplier"],
-                payload["snowstorm_multiplier"],
-                payload["target_waste_min_pct"],
-                payload["target_waste_max_pct"],
-                payload["auto_calendar_events_enabled"],
-                payload["notify_in_app"],
-                payload["notify_email"],
-                payload["notify_forecast_shift"],
-                payload["forecast_shift_threshold_pct"],
-                payload["email_include_waste"],
-                payload["email_include_forecast_shift"],
-                payload["email_include_low_confidence"],
-            ),
-        )
+        upsert_settings_row(cur, int(store_id), payload)
 
         write_settings_snapshot(cur, store_id, changed_by, payload)
         conn.commit()
