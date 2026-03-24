@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, X, Eye, EyeOff } from 'lucide-react';
+import { apiFetch } from '../../utils/api';
 
 interface ResetPasswordProps {
   onClose: () => void;
@@ -33,20 +34,13 @@ export function ResetPassword({ onClose, onSuccess, token: propToken }: ResetPas
 
     const validateToken = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/validate-reset-token`, {
+        const data = await apiFetch('/auth/validate-reset-token', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-          setTokenValid(true);
-          setUserEmail(data.email);
-        } else {
-          setError(data.message || 'Invalid or expired reset link');
-        }
+        setTokenValid(true);
+        setUserEmail(data.email || '');
       } catch (err: any) {
         setError(err.message || 'Failed to validate reset token');
         console.error('Token validation error:', err);
@@ -75,21 +69,14 @@ export function ResetPassword({ onClose, onSuccess, token: propToken }: ResetPas
     setLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/reset-password`, {
+      await apiFetch('/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password })
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmitted(true);
-        if (onSuccess) {
-          setTimeout(onSuccess, 1500);
-        }
-      } else {
-        setError(data.message || 'Failed to reset password');
+      setSubmitted(true);
+      if (onSuccess) {
+        setTimeout(onSuccess, 1500);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');

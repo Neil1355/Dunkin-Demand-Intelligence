@@ -30,12 +30,14 @@ This document outlines all security features implemented in the Dunkin Demand In
 
 ---
 
-## 2. Rate Limiting ✅ NEW
+## 2. Rate Limiting ✅ ACTIVE
 
 ### Implementation
-- ✅ Flask-Limiter integrated
-- ✅ Per-IP rate limits
-- ✅ Memory-based storage (upgrade to Redis for production)
+- ✅ Flask-Limiter integrated and initialized in app startup
+- ✅ Global per-IP limits applied to API routes
+- ✅ Route-specific stricter limits for sensitive auth and QR actions
+- ✅ OPTIONS requests excluded from limiting (CORS preflight safe)
+- ✅ Memory-based storage by default, configurable via `RATE_LIMIT_STORAGE_URI`
 
 ### Limits Applied
 
@@ -45,11 +47,12 @@ This document outlines all security features implemented in the Dunkin Demand In
 | `/auth/signup` | 3/minute | Prevent spam |
 | `/auth/forgot-password` | 3/minute | Prevent abuse |
 | `/auth/reset-password` | 5/minute | Moderate reset attempts |
-| API General | 100/minute | Normal operations |
+| API General | 120/minute + 5000/day | Normal operations |
 | `/export` | 10/hour | Expensive operations |
 | `/qr/download` | 30/hour | QR code downloads |
+| `/qr/store/{id}/pin/change` | 10/hour | Sensitive PIN updates |
 
-**Location:** `backend/utils/security.py`
+**Location:** `backend/utils/security.py`, `backend/app.py`
 
 **Implementation in routes:**
 ```python
@@ -60,6 +63,8 @@ from utils.security import rate_limit
 def login():
     ...
 ```
+
+Applied currently to auth-sensitive routes in `backend/routes/auth.py` and PIN/QR-sensitive routes in `backend/routes/qr.py`.
 
 ---
 

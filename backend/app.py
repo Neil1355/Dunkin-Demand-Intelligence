@@ -1,13 +1,25 @@
 import os
 import re
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from utils.security import limiter
 
 ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 app = Flask(__name__)
+limiter.init_app(app)
+
+
+@limiter.request_filter
+def skip_rate_limit_for_options():
+    return request.method == "OPTIONS"
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({"error": "Too many requests. Please try again later."}), 429
 
 # Initialize database connection pool on startup
 from models.db import init_connection_pool

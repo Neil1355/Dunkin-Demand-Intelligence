@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, X, ArrowLeft } from 'lucide-react';
-import { apiClient } from '../../api/client';
+import { apiFetch } from '../../utils/api';
 
 interface ForgotPasswordProps {
   onClose: () => void;
@@ -19,20 +19,13 @@ export function ForgotPassword({ onClose, onBackToLogin }: ForgotPasswordProps) 
     setLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/auth/forgot-password`, {
+      await apiFetch('/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmitted(true);
-        setEmail('');
-      } else {
-        setError(data.message || 'Failed to request reset link');
-      }
+      setSubmitted(true);
+      setEmail('');
     } catch (err: any) {
       setError(err.message || 'An error occurred');
       console.error('Forgot password error:', err);

@@ -255,6 +255,20 @@ curl -X POST "https://api.sendgrid.com/v3/mail/send" \
 
 ## Environment Variables
 
+Security-sensitive variables that must be set in production:
+
+```env
+JWT_SECRET_KEY=replace-with-long-random-secret
+FLASK_ENV=production
+DATABASE_URL=postgresql://...:6543/postgres?pgbouncer=true&sslmode=require
+RATE_LIMIT_STORAGE_URI=memory://
+```
+
+Notes:
+- Prefer Supabase pooler (`:6543`) on Render.
+- Keep `sslmode=require` in connection settings.
+- For multi-instance deployments, move rate limit storage to Redis.
+
 ### Production `.env` File
 
 ```env

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, abort
 from models.user_model import create_user, authenticate_user, request_password_reset, validate_reset_token, reset_password
 from models.db import get_connection, return_connection
 from utils.validation import validate_json
+from utils.security import rate_limit, validate_input_length
 from utils.jwt_handler import create_access_token, create_refresh_token
 import os
 from services.email_service import send_password_reset_email
@@ -57,6 +58,8 @@ auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.post("/signup")
+@rate_limit("auth_signup")
+@validate_input_length(255)
 def signup():
     validated = validate_json(request, signup_schema)
     if isinstance(validated, tuple):
@@ -111,6 +114,8 @@ def signup():
 
 
 @auth_bp.post("/login")
+@rate_limit("auth_login")
+@validate_input_length(255)
 def login():
     validated = validate_json(request, login_schema)
     if isinstance(validated, tuple):
@@ -160,6 +165,8 @@ def login():
     return response, 200
 
 @auth_bp.post("/forgot-password")
+@rate_limit("auth_forgot_password")
+@validate_input_length(255)
 def forgot_password():
     """Request a password reset token via email.
     
@@ -188,6 +195,8 @@ def forgot_password():
 
 
 @auth_bp.post("/validate-reset-token")
+@rate_limit("auth_reset_password")
+@validate_input_length(255)
 def validate_token():
     """Validate a password reset token without consuming it."""
     data = request.get_json() or {}
@@ -204,6 +213,8 @@ def validate_token():
 
 
 @auth_bp.post("/reset-password")
+@rate_limit("auth_reset_password")
+@validate_input_length(255)
 def reset_password_endpoint():
     """Reset password using a valid reset token."""
     validated = validate_json(request, reset_password_schema)

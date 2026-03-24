@@ -12,8 +12,8 @@ import os
 # Initialize limiter
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["500 per hour"],
-    storage_uri="memory://"  # Use in-memory storage; switch to Redis for production
+    default_limits=["120 per minute", "5000 per day"],
+    storage_uri=os.getenv("RATE_LIMIT_STORAGE_URI", "memory://"),
 )
 
 # Define rate limit strategies by endpoint type
@@ -25,6 +25,7 @@ RATE_LIMITS = {
     'api_general': "100 per minute",  # Normal API calls
     'export': "10 per hour",  # Expensive operations
     'qr_download': "30 per hour",  # QR code downloads
+    'pin_change': "10 per hour",  # Sensitive action
 }
 
 def rate_limit(limit_key: str):
@@ -37,13 +38,8 @@ def rate_limit(limit_key: str):
         def login():
             ...
     """
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            limit = RATE_LIMITS.get(limit_key, RATE_LIMITS['api_general'])
-            return limiter.limit(limit)(f)(*args, **kwargs)
-        return decorated_function
-    return decorator
+    limit = RATE_LIMITS.get(limit_key, RATE_LIMITS['api_general'])
+    return limiter.limit(limit)
 
 
 def validate_input_length(max_length: int):

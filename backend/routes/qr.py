@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, send_file, request, current_app
 from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
+from utils.security import rate_limit
 from flask import g
 import qrcode
 import io
@@ -211,6 +212,7 @@ def get_or_create_qr(store_id):
 
 @qr_bp.route("/download/<int:store_id>", methods=["GET"])
 @require_auth
+@rate_limit("qr_download")
 def download_qr(store_id):
     """Download QR code as PNG image with header"""
     try:
@@ -248,6 +250,7 @@ def download_qr(store_id):
 
 @qr_bp.route("/download/<int:store_id>/simple", methods=["GET"])
 @require_auth
+@rate_limit("qr_download")
 def download_qr_simple(store_id):
     """Download QR code as PNG without header (simple version)"""
     try:
@@ -301,6 +304,7 @@ def check_qr_status(store_id):
 
 @qr_bp.route("/regenerate/<int:store_id>", methods=["POST"])
 @require_auth
+@rate_limit("qr_download")
 def regenerate_qr(store_id):
     """Force regenerate QR code for a store"""
     try:
@@ -367,6 +371,7 @@ def get_store_pin_status(store_id):
 
 @qr_bp.route("/store/<int:store_id>/pin/change", methods=["POST"])
 @require_auth
+@rate_limit("pin_change")
 def change_store_pin(store_id):
     """Change store PIN after manager password verification."""
     data = request.get_json() or {}
