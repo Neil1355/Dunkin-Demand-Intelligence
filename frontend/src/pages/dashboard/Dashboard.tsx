@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 /// <reference types="vite/client" />
-import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Pencil, TrendingUp, History, Menu, X, Plus, Trash2, Edit2, Download, QrCode, ClipboardCheck, Settings } from 'lucide-react';
 // @ts-ignore: third-party module types
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { apiFetch } from '../../utils/api';
@@ -20,6 +20,16 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTypes, onUpdateDonutTypes, onUpdateMunchkinTypes }: DashboardProps) {
+  const defaultProfileSettings = {
+    busy_multiplier: 1.18,
+    normal_multiplier: 1.0,
+    slow_multiplier: 0.86,
+    unsure_multiplier: 1.0,
+    festival_week_multiplier: 1.2,
+    festival_day_multiplier: 1.14,
+    snowstorm_multiplier: 0.72,
+  };
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === 'undefined') {
@@ -64,6 +74,10 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [forecastBusyOutlook, setForecastBusyOutlook] = useState<'yes' | 'no' | 'maybe' | 'not_sure'>('not_sure');
   const [forecastReason, setForecastReason] = useState('mixed_signals');
   const [forecastNotes, setForecastNotes] = useState('');
+  const [profileSettings, setProfileSettings] = useState<any>(defaultProfileSettings);
+  const [profileSettingsLoading, setProfileSettingsLoading] = useState(false);
+  const [profileSettingsSaving, setProfileSettingsSaving] = useState(false);
+  const [storeDisplayName, setStoreDisplayName] = useState('');
 
   const reasonOptionsByOutlook: Record<'yes' | 'no' | 'maybe' | 'not_sure', Array<{ value: string; label: string }>> = {
     yes: [
@@ -158,6 +172,64 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       setQuickStatsData(null);
     } finally {
       setQuickStatsLoading(false);
+    }
+  }
+
+  async function fetchProfileSettings() {
+    try {
+      setProfileSettingsLoading(true);
+      const result = await apiFetch(`/forecast/settings/?store_id=${storeId}`);
+      if (result?.settings) {
+        setProfileSettings({ ...defaultProfileSettings, ...result.settings });
+      }
+      setStoreDisplayName(result?.store_name || '');
+    } catch (err) {
+      console.error('Failed to load profile settings:', err);
+      setProfileSettings(defaultProfileSettings);
+    } finally {
+      setProfileSettingsLoading(false);
+    }
+  }
+
+  function handleProfileSettingChange(key: string, value: string) {
+    const numeric = Number(value);
+    const safeValue = Number.isNaN(numeric) ? 1 : Math.max(0.5, Math.min(2.0, numeric));
+    setProfileSettings((prev: any) => ({ ...prev, [key]: safeValue }));
+  }
+
+  async function saveProfileSettings() {
+    try {
+      setProfileSettingsSaving(true);
+      await apiFetch('/forecast/settings/', {
+        method: 'PUT',
+        body: JSON.stringify({
+          store_id: storeId,
+          settings: profileSettings,
+        }),
+      });
+      alert('Profile settings saved successfully.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to save settings';
+      alert(errorMsg);
+    } finally {
+      setProfileSettingsSaving(false);
+    }
+  }
+
+  async function resetProfileSettings() {
+    try {
+      setProfileSettingsSaving(true);
+      const result = await apiFetch('/forecast/settings/reset', {
+        method: 'POST',
+        body: JSON.stringify({ store_id: storeId }),
+      });
+      setProfileSettings({ ...defaultProfileSettings, ...(result?.settings || {}) });
+      alert('Forecast settings reset to defaults.');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to reset settings';
+      alert(errorMsg);
+    } finally {
+      setProfileSettingsSaving(false);
     }
   }
 
@@ -541,6 +613,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     fetchImportHistory();
     fetchWasteDirectoryProducts();
     fetchPendingSubmissions();
+    fetchProfileSettings();
   }, [storeId]);
 
   useEffect(() => {
@@ -589,6 +662,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     { id: 'predictions', icon: TrendingUp, label: 'Predictions' },
     { id: 'history', icon: History, label: 'History' },
     { id: 'imported', icon: Download, label: 'Imported Data' },
+    { id: 'profile', icon: Settings, label: 'Profile & Settings' },
     { id: 'qr-code', icon: QrCode, label: 'QR Code' }
   ];
 
@@ -872,7 +946,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
               <span className="text-xl">🍩</span>
             </div>
-            <span className="text-white">DDI</span>
+            <span className="text-white">Dunkin' Demand Intelligence</span>
           </div>
 
           <nav className="space-y-2">
@@ -1698,6 +1772,99 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'profile' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl p-8 shadow-lg">
+                <div className="flex items-start justify-between gap-4 mb-6">
+                  <div>
+                    <h3 style={{ color: '#FF671F' }}>Manager Profile & Forecast Settings</h3>
+                    <p className="mt-2" style={{ color: '#8B7355' }}>
+                      Tune demand multipliers for your store and reset safely if needed.
+                    </p>
+                  </div>
+                  <button
+                    onClick={resetProfileSettings}
+                    disabled={profileSettingsSaving}
+                    className="px-4 py-2 rounded-full border-2 transition-all disabled:opacity-50"
+                    style={{ borderColor: '#DA1884', color: '#DA1884' }}
+                  >
+                    Reset To Defaults
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
+                    <div className="text-sm" style={{ color: '#8B7355' }}>Manager Name</div>
+                    <div style={{ color: '#FF671F' }}>{username}</div>
+                  </div>
+                  <div className="p-4 rounded-2xl" style={{ backgroundColor: '#FFF8F0' }}>
+                    <div className="text-sm" style={{ color: '#8B7355' }}>Store</div>
+                    <div style={{ color: '#FF671F' }}>{storeDisplayName || `Store #${storeId}`}</div>
+                  </div>
+                </div>
+
+                {profileSettingsLoading ? (
+                  <div style={{ color: '#8B7355' }}>Loading settings...</div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Busy Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.busy_multiplier} onChange={(e) => handleProfileSettingChange('busy_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Normal Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.normal_multiplier} onChange={(e) => handleProfileSettingChange('normal_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Slow Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.slow_multiplier} onChange={(e) => handleProfileSettingChange('slow_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Not Sure Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.unsure_multiplier} onChange={(e) => handleProfileSettingChange('unsure_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Festival Week Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.festival_week_multiplier} onChange={(e) => handleProfileSettingChange('festival_week_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Festival Day Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.festival_day_multiplier} onChange={(e) => handleProfileSettingChange('festival_day_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                      <div className="p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC' }}>
+                        <div className="text-sm mb-1" style={{ color: '#8B7355' }}>Snowstorm Multiplier</div>
+                        <input type="number" min="0.5" max="2" step="0.01" value={profileSettings.snowstorm_multiplier} onChange={(e) => handleProfileSettingChange('snowstorm_multiplier', e.target.value)} className="w-full px-3 py-2 rounded-xl border" />
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <button
+                        onClick={saveProfileSettings}
+                        disabled={profileSettingsSaving}
+                        className="px-6 py-3 rounded-full text-white transition-all hover:scale-105 disabled:opacity-50"
+                        style={{ backgroundColor: '#FF671F' }}
+                      >
+                        {profileSettingsSaving ? 'Saving...' : 'Save Settings'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="bg-white rounded-3xl p-8 shadow-lg">
+                <h4 className="mb-4" style={{ color: '#FF671F' }}>Suggested Additions</h4>
+                <ul className="space-y-2" style={{ color: '#8B7355' }}>
+                  <li>Target throwaway % range with guardrails and alerts.</li>
+                  <li>Forecast confidence level indicator (high/medium/low).</li>
+                  <li>Store hours + holiday schedule profile.</li>
+                  <li>Automatic event calendar import and one-click enable/disable.</li>
+                  <li>Audit trail showing who changed settings and when.</li>
+                </ul>
+              </div>
             </div>
           )}
 

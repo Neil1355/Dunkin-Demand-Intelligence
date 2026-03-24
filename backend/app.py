@@ -97,6 +97,7 @@ from routes.forecast_raw import bp as forecast_raw_bp, bp_alt as forecast_raw_al
 from routes.manager_context import bp as manager_context_bp
 from routes.users import bp as users_bp
 from routes.dashboard_data import bp as dashboard_data_bp
+from routes.profile_settings import forecast_settings_bp
 
 # 4. REGISTER BLUEPRINTS
 app.register_blueprint(products_bp, url_prefix="/api/v1/products")
@@ -134,6 +135,7 @@ app.register_blueprint(forecast_raw_alt_bp)  # Alternate route with /api/v1/fore
 app.register_blueprint(manager_context_bp, url_prefix="/api/v1/manager_context")
 app.register_blueprint(users_bp, url_prefix="/api/v1/users")
 app.register_blueprint(dashboard_data_bp, url_prefix="/api/v1/dashboard")
+app.register_blueprint(forecast_settings_bp, url_prefix="/api/v1/forecast/settings")
 
 @app.get("/")
 def home():

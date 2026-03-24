@@ -4,9 +4,66 @@ from datetime import date, timedelta
 
 forecast_bp = Blueprint("forecast", __name__)
 
+DEFAULT_CUSTOM_MULTIPLIERS = {
+    "busy_multiplier": 1.18,
+    "normal_multiplier": 1.00,
+    "slow_multiplier": 0.86,
+    "unsure_multiplier": 1.00,
+    "festival_week_multiplier": 1.20,
+    "festival_day_multiplier": 1.14,
+    "snowstorm_multiplier": 0.72,
+}
+
 
 def clamp_multiplier(value: float) -> float:
     return max(0.5, min(2.0, value))
+
+
+def ensure_settings_table(cur):
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS public.forecast_multiplier_settings (
+            store_id INTEGER PRIMARY KEY REFERENCES stores(id) ON DELETE CASCADE,
+            busy_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.18,
+            normal_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.00,
+            slow_multiplier NUMERIC(5,2) NOT NULL DEFAULT 0.86,
+            unsure_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.00,
+            festival_week_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.20,
+            festival_day_multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.14,
+            snowstorm_multiplier NUMERIC(5,2) NOT NULL DEFAULT 0.72,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
+
+def get_store_custom_multipliers(cur, store_id: int) -> dict:
+    ensure_settings_table(cur)
+    cur.execute(
+        """
+        SELECT
+            busy_multiplier,
+            normal_multiplier,
+            slow_multiplier,
+            unsure_multiplier,
+            festival_week_multiplier,
+            festival_day_multiplier,
+            snowstorm_multiplier
+        FROM public.forecast_multiplier_settings
+        WHERE store_id = %s
+        LIMIT 1
+        """,
+        (store_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        return DEFAULT_CUSTOM_MULTIPLIERS.copy()
+
+    return {
+        key: float(row[key]) if row.get(key) is not None else default
+        for key, default in DEFAULT_CUSTOM_MULTIPLIERS.items()
+    }
 
 
 def nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
@@ -39,32 +96,34 @@ def get_calendar_multiplier(target_date: date) -> float:
     return 1.0
 
 
-def get_expectation_multiplier(expectation: str | None) -> float:
+def get_expectation_multiplier(expectation: str | None, custom: dict | None = None) -> float:
+    custom = custom or DEFAULT_CUSTOM_MULTIPLIERS
     if not expectation:
-        return 1.0
+        return float(custom["unsure_multiplier"])
     normalized = expectation.strip().lower()
     mapping = {
-        "yes": 1.18,
-        "busy": 1.18,
-        "maybe": 1.07,
-        "not_sure": 1.00,
-        "unsure": 1.00,
-        "normal": 1.00,
-        "no": 0.86,
-        "slow": 0.86,
-        "slower": 0.86,
+        "yes": float(custom["busy_multiplier"]),
+        "busy": float(custom["busy_multiplier"]),
+        "maybe": float(custom["unsure_multiplier"]),
+        "not_sure": float(custom["unsure_multiplier"]),
+        "unsure": float(custom["unsure_multiplier"]),
+        "normal": float(custom["normal_multiplier"]),
+        "no": float(custom["slow_multiplier"]),
+        "slow": float(custom["slow_multiplier"]),
+        "slower": float(custom["slow_multiplier"]),
     }
-    return mapping.get(normalized, 1.0)
+    return mapping.get(normalized, float(custom["normal_multiplier"]))
 
 
-def get_reason_multiplier(reason: str | None) -> float:
+def get_reason_multiplier(reason: str | None, custom: dict | None = None) -> float:
+    custom = custom or DEFAULT_CUSTOM_MULTIPLIERS
     if not reason:
         return 1.0
     normalized = reason.strip().lower()
     mapping = {
         # Busy reasons
-        "festival_week": 1.20,
-        "festival_day": 1.14,
+        "festival_week": float(custom["festival_week_multiplier"]),
+        "festival_day": float(custom["festival_day_multiplier"]),
         "local_event": 1.10,
         "school_day": 1.06,
         "good_weather": 1.04,
@@ -72,7 +131,7 @@ def get_reason_multiplier(reason: str | None) -> float:
         "pay_cycle": 1.04,
 
         # Slow reasons
-        "snowstorm": 0.72,
+        "snowstorm": float(custom["snowstorm_multiplier"]),
         "heavy_rain": 0.88,
         "extreme_cold": 0.84,
         "school_break": 0.92,
@@ -102,6 +161,7 @@ def next_day_forecast():
 
         target_date = request.args.get("target_date", type=lambda d: date.fromisoformat(d)) or (date.today() + timedelta(days=1))
         target_isodow = target_date.isoweekday()
+        custom_multipliers = get_store_custom_multipliers(cur, store_id)
 
         context_multiplier = 1.0
         calendar_multiplier = get_calendar_multiplier(target_date)
@@ -122,8 +182,8 @@ def next_day_forecast():
         if context_row:
             saved_expectation = context_row.get("expectation")
             saved_reason = context_row.get("reason")
-            context_multiplier *= get_expectation_multiplier(saved_expectation)
-            context_multiplier *= get_reason_multiplier(saved_reason)
+            context_multiplier *= get_expectation_multiplier(saved_expectation, custom_multipliers)
+            context_multiplier *= get_reason_multiplier(saved_reason, custom_multipliers)
 
         computed_multiplier = clamp_multiplier(context_multiplier * calendar_multiplier)
         final_multiplier = clamp_multiplier(adjustment_override) if adjustment_override is not None else computed_multiplier
@@ -202,6 +262,7 @@ def next_day_forecast():
             "calendar_multiplier": calendar_multiplier,
             "context_expectation": saved_expectation,
             "context_reason": saved_reason,
+            "settings_multipliers": custom_multipliers,
         })
     finally:
         return_connection(conn)
