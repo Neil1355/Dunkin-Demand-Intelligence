@@ -405,18 +405,24 @@ def change_store_pin(store_id):
         if not user_row:
             return jsonify({"error": "User not found"}), 404
 
-        role = str(user_row.get("role") or "").strip().lower().replace(" ", "_").replace("-", "_")
-        manager_roles = {"manager", "assistant_manager", "store_manager", "admin", "owner"}
-        is_store_manager = int(user_row.get("manager_id") or 0) == int(user_id)
-        if role not in manager_roles and not is_store_manager:
-            return jsonify({"error": "Only managers can change store PIN"}), 403
-
         if int(user_row.get("store_id") or 0) != store_id:
             return jsonify({"error": "User does not belong to this store"}), 403
 
         stored_hash = user_row.get("password_hash")
         if not stored_hash or not bcrypt.checkpw(current_password.encode(), str(stored_hash).encode()):
             return jsonify({"error": "Password verification failed"}), 401
+
+        role = str(user_row.get("role") or "").strip().lower().replace(" ", "_").replace("-", "_")
+        manager_roles = {"manager", "assistant_manager", "store_manager", "admin", "owner"}
+        is_store_manager = int(user_row.get("manager_id") or 0) == int(user_id)
+
+        # Backward compatibility: some older deployments have manager accounts stored as
+        # employee and no stores.manager_id configured. In that case, allow same-store
+        # authenticated users with verified password to update PIN.
+        legacy_store_without_manager = user_row.get("manager_id") is None
+        role_is_legacy = role in ("", "employee")
+        if role not in manager_roles and not is_store_manager and not (legacy_store_without_manager and role_is_legacy):
+            return jsonify({"error": f"Only managers can change store PIN (current role: {role or 'unknown'})"}), 403
 
         cur.execute("UPDATE stores SET store_pin = %s, updated_at = NOW() WHERE id = %s", (new_pin, store_id))
         if cur.rowcount == 0:
