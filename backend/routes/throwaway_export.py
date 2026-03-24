@@ -3,7 +3,9 @@ import pandas as pd
 from datetime import timedelta, datetime
 from models.db import get_connection, return_connection
 from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment, Font, PatternFill
+from typing import cast
 import tempfile
 import os
 
@@ -122,7 +124,10 @@ def export_throwaway():
 
         # Create Excel workbook
         wb = Workbook()
-        ws = wb.active
+        ws_active = wb.active
+        if ws_active is None:
+            return jsonify({"error": "Failed to initialize workbook worksheet"}), 500
+        ws = cast(Worksheet, ws_active)
         ws.title = "Throwaway"
 
         current_row = 1
