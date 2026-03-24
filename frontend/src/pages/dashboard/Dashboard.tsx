@@ -61,9 +61,42 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
   const [selectedAddProductId, setSelectedAddProductId] = useState('');
   const [expandedImportedWeeks, setExpandedImportedWeeks] = useState<Record<string, boolean>>({});
   const [showForecastModal, setShowForecastModal] = useState(false);
-  const [forecastBusinessLevel, setForecastBusinessLevel] = useState<'normal' | 'busy' | 'slower'>('normal');
-  const [forecastReason, setForecastReason] = useState('regular_day');
+  const [forecastBusyOutlook, setForecastBusyOutlook] = useState<'yes' | 'no' | 'maybe' | 'not_sure'>('not_sure');
+  const [forecastReason, setForecastReason] = useState('mixed_signals');
   const [forecastNotes, setForecastNotes] = useState('');
+
+  const reasonOptionsByOutlook: Record<'yes' | 'no' | 'maybe' | 'not_sure', Array<{ value: string; label: string }>> = {
+    yes: [
+      { value: 'festival_week', label: 'Festival week / local celebration' },
+      { value: 'festival_day', label: 'Festival day / holiday crowd' },
+      { value: 'school_day', label: 'School day traffic' },
+      { value: 'good_weather', label: 'Good weather' },
+      { value: 'local_event', label: 'Local event nearby' },
+      { value: 'promotion_day', label: 'Promo / offer day' },
+      { value: 'other_busy', label: 'Other' },
+    ],
+    no: [
+      { value: 'snowstorm', label: 'Snowstorm / severe weather' },
+      { value: 'heavy_rain', label: 'Heavy rain expected' },
+      { value: 'extreme_cold', label: 'Too cold / low foot traffic' },
+      { value: 'school_break', label: 'School break / vacation week' },
+      { value: 'road_closure', label: 'Roadwork / access issue' },
+      { value: 'other_slow', label: 'Other' },
+    ],
+    maybe: [
+      { value: 'mixed_signals', label: 'Mixed signals' },
+      { value: 'uncertain_weather', label: 'Weather uncertain' },
+      { value: 'partial_event', label: 'Event impact unknown' },
+      { value: 'pay_cycle', label: 'Pay cycle may affect traffic' },
+      { value: 'other_maybe', label: 'Other' },
+    ],
+    not_sure: [
+      { value: 'mixed_signals', label: 'Not sure / mixed signals' },
+      { value: 'new_pattern', label: 'New pattern this week' },
+      { value: 'manager_override', label: 'Manager intuition only' },
+      { value: 'other_unsure', label: 'Other' },
+    ],
+  };
 
   const [quantities, setQuantities] = useState<Record<string, number>>(
     [...donutTypes, ...munchkinTypes].reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
@@ -82,6 +115,13 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const options = reasonOptionsByOutlook[forecastBusyOutlook];
+    if (!options.some((opt) => opt.value === forecastReason)) {
+      setForecastReason(options[0]?.value || 'mixed_signals');
+    }
+  }, [forecastBusyOutlook, forecastReason]);
 
   // Fetch dashboard data
   async function fetchDashboardData() {
@@ -683,7 +723,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
           body: JSON.stringify({
             store_id: storeId,
             target_date: targetDate,
-            expectation: forecastBusinessLevel,
+            expectation: forecastBusyOutlook,
             reason: forecastReason,
             notes: forecastNotes,
           }),
@@ -692,12 +732,9 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
         console.warn('Context save failed, continuing forecast generation:', contextErr);
       }
       
-      // Generate forecast with adjustment multiplier
-      const multiplier = forecastBusinessLevel === 'busy' ? 1.2 : 
-                        forecastBusinessLevel === 'slower' ? 0.8 : 1.0;
-      
+      // Generate forecast; backend applies context and calendar adjustments.
       const result = await apiFetch(
-        `/forecast/next-day?store_id=${storeId}&target_date=${targetDate}&adjustment=${multiplier}`
+        `/forecast/next-day?store_id=${storeId}&target_date=${targetDate}`
       );
       
       const count = result?.generated_products ?? Object.keys(result?.forecast || {}).length;
@@ -708,8 +745,8 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
       await fetchForecastPredictions(targetDate);
       
       // Reset modal state
-      setForecastBusinessLevel('normal');
-      setForecastReason('regular_day');
+      setForecastBusyOutlook('not_sure');
+      setForecastReason('mixed_signals');
       setForecastNotes('');
     } catch (err) {
       alert("Failed to generate forecast: " + (err instanceof Error ? err.message : 'Unknown error'));
@@ -1694,35 +1731,34 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#8B7355' }}>
-                  Expected Business Level
+                  Do you think tomorrow will be busy?
                 </label>
                 <select
-                  value={forecastBusinessLevel}
-                  onChange={(e) => setForecastBusinessLevel(e.target.value as 'normal' | 'busy' | 'slower')}
+                  value={forecastBusyOutlook}
+                  onChange={(e) => setForecastBusyOutlook(e.target.value as 'yes' | 'no' | 'maybe' | 'not_sure')}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#FF671F] focus:outline-none"
                 >
-                  <option value="normal">Normal</option>
-                  <option value="busy">Busy (+20%)</option>
-                  <option value="slower">Slower (-20%)</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                  <option value="maybe">Maybe</option>
+                  <option value="not_sure">Not sure</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#8B7355' }}>
-                  Reason / Event
+                  {forecastBusyOutlook === 'yes' ? 'Why do you expect higher demand?' :
+                    forecastBusyOutlook === 'no' ? 'Why do you expect lower demand?' :
+                      'What is the main uncertainty?'}
                 </label>
                 <select
                   value={forecastReason}
                   onChange={(e) => setForecastReason(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#FF671F] focus:outline-none"
                 >
-                  <option value="regular_day">Regular Day</option>
-                  <option value="school">School Event</option>
-                  <option value="weather">Weather Related</option>
-                  <option value="holiday">Holiday</option>
-                  <option value="special_occasion">Special Occasion</option>
-                  <option value="promotion">Promotion</option>
-                  <option value="other">Other</option>
+                  {reasonOptionsByOutlook[forecastBusyOutlook].map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </div>
 
