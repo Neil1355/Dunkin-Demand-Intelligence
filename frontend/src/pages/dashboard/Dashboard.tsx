@@ -1294,7 +1294,7 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
             <div className="space-y-6">
               {/* Greeting */}
               <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-3xl p-6 shadow-lg">
-                <h2 style={{ color: '#FF671F' }}>Hey {username}! 👋</h2>
+                <h2 style={{ color: '#FF671F' }}>Hey {managerProfile.manager_name || username}! 👋</h2>
                 <p style={{ color: '#8B7355' }}>Welcome back to your Dunkin' Demand Intelligence dashboard.</p>
               </div>
 

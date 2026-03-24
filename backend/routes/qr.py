@@ -393,19 +393,22 @@ def change_store_pin(store_id):
         # Verify user role and password before allowing PIN change.
         cur.execute(
             """
-            SELECT id, role, password_hash, store_id
-            FROM users
-            WHERE id = %s
+            SELECT u.id, u.role, u.password_hash, u.store_id, s.manager_id
+            FROM users u
+            LEFT JOIN stores s ON s.id = %s
+            WHERE u.id = %s
             LIMIT 1
             """,
-            (user_id,),
+            (store_id, user_id),
         )
         user_row = cur.fetchone()
         if not user_row:
             return jsonify({"error": "User not found"}), 404
 
-        role = (user_row.get("role") or "").lower()
-        if role not in ("manager", "assistant_manager"):
+        role = str(user_row.get("role") or "").strip().lower().replace(" ", "_").replace("-", "_")
+        manager_roles = {"manager", "assistant_manager", "store_manager", "admin", "owner"}
+        is_store_manager = int(user_row.get("manager_id") or 0) == int(user_id)
+        if role not in manager_roles and not is_store_manager:
             return jsonify({"error": "Only managers can change store PIN"}), 403
 
         if int(user_row.get("store_id") or 0) != store_id:
