@@ -19,6 +19,9 @@ DEFAULT_MULTIPLIERS = {
     "notify_email": 0.0,
     "notify_forecast_shift": 1.0,
     "forecast_shift_threshold_pct": 12.0,
+    "email_include_waste": 1.0,
+    "email_include_forecast_shift": 1.0,
+    "email_include_low_confidence": 1.0,
 }
 
 
@@ -41,6 +44,9 @@ def ensure_settings_table(cur):
             notify_email BOOLEAN NOT NULL DEFAULT FALSE,
             notify_forecast_shift BOOLEAN NOT NULL DEFAULT TRUE,
             forecast_shift_threshold_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00,
+            email_include_waste BOOLEAN NOT NULL DEFAULT TRUE,
+            email_include_forecast_shift BOOLEAN NOT NULL DEFAULT TRUE,
+            email_include_low_confidence BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -55,6 +61,9 @@ def ensure_settings_table(cur):
     cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT FALSE;")
     cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS notify_forecast_shift BOOLEAN NOT NULL DEFAULT TRUE;")
     cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS forecast_shift_threshold_pct NUMERIC(5,2) NOT NULL DEFAULT 12.00;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS email_include_waste BOOLEAN NOT NULL DEFAULT TRUE;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS email_include_forecast_shift BOOLEAN NOT NULL DEFAULT TRUE;")
+    cur.execute("ALTER TABLE public.forecast_multiplier_settings ADD COLUMN IF NOT EXISTS email_include_low_confidence BOOLEAN NOT NULL DEFAULT TRUE;")
 
     cur.execute(
         """
@@ -99,7 +108,7 @@ def normalize_settings(raw_settings: dict) -> dict:
                 payload[key] = default
             continue
 
-        if key in ("auto_calendar_events_enabled", "notify_in_app", "notify_email", "notify_forecast_shift"):
+        if key in ("auto_calendar_events_enabled", "notify_in_app", "notify_email", "notify_forecast_shift", "email_include_waste", "email_include_forecast_shift", "email_include_low_confidence"):
             payload[key] = to_bool(raw_value, bool(default))
             continue
 
@@ -152,6 +161,9 @@ def get_forecast_settings():
                 fms.notify_email,
                 fms.notify_forecast_shift,
                 fms.forecast_shift_threshold_pct,
+                fms.email_include_waste,
+                fms.email_include_forecast_shift,
+                fms.email_include_low_confidence,
                 s.name AS store_name
             FROM stores s
             LEFT JOIN forecast_multiplier_settings fms ON fms.store_id = s.id
@@ -166,7 +178,7 @@ def get_forecast_settings():
             return jsonify({"error": "Store not found"}), 404
 
         settings = {
-            key: (bool(row[key]) if key in ("auto_calendar_events_enabled", "notify_in_app", "notify_email", "notify_forecast_shift") else float(row[key])) if row.get(key) is not None else default
+            key: (bool(row[key]) if key in ("auto_calendar_events_enabled", "notify_in_app", "notify_email", "notify_forecast_shift", "email_include_waste", "email_include_forecast_shift", "email_include_low_confidence") else float(row[key])) if row.get(key) is not None else default
             for key, default in DEFAULT_MULTIPLIERS.items()
         }
 
@@ -216,8 +228,11 @@ def update_forecast_settings():
                 notify_email,
                 notify_forecast_shift,
                 forecast_shift_threshold_pct,
+                email_include_waste,
+                email_include_forecast_shift,
+                email_include_low_confidence,
                 updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (store_id)
             DO UPDATE SET
                 busy_multiplier = EXCLUDED.busy_multiplier,
@@ -234,6 +249,9 @@ def update_forecast_settings():
                 notify_email = EXCLUDED.notify_email,
                 notify_forecast_shift = EXCLUDED.notify_forecast_shift,
                 forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
+                email_include_waste = EXCLUDED.email_include_waste,
+                email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
+                email_include_low_confidence = EXCLUDED.email_include_low_confidence,
                 updated_at = NOW()
             """,
             (
@@ -252,6 +270,9 @@ def update_forecast_settings():
                 payload["notify_email"],
                 payload["notify_forecast_shift"],
                 payload["forecast_shift_threshold_pct"],
+                payload["email_include_waste"],
+                payload["email_include_forecast_shift"],
+                payload["email_include_low_confidence"],
             ),
         )
 
@@ -296,8 +317,11 @@ def reset_forecast_settings():
                 notify_email,
                 notify_forecast_shift,
                 forecast_shift_threshold_pct,
+                email_include_waste,
+                email_include_forecast_shift,
+                email_include_low_confidence,
                 updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (store_id)
             DO UPDATE SET
                 busy_multiplier = EXCLUDED.busy_multiplier,
@@ -314,6 +338,9 @@ def reset_forecast_settings():
                 notify_email = EXCLUDED.notify_email,
                 notify_forecast_shift = EXCLUDED.notify_forecast_shift,
                 forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
+                email_include_waste = EXCLUDED.email_include_waste,
+                email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
+                email_include_low_confidence = EXCLUDED.email_include_low_confidence,
                 updated_at = NOW()
             """,
             (
@@ -332,6 +359,9 @@ def reset_forecast_settings():
                 DEFAULT_MULTIPLIERS["notify_email"],
                 DEFAULT_MULTIPLIERS["notify_forecast_shift"],
                 DEFAULT_MULTIPLIERS["forecast_shift_threshold_pct"],
+                DEFAULT_MULTIPLIERS["email_include_waste"],
+                DEFAULT_MULTIPLIERS["email_include_forecast_shift"],
+                DEFAULT_MULTIPLIERS["email_include_low_confidence"],
             ),
         )
 
@@ -422,8 +452,11 @@ def rollback_settings():
                 notify_email,
                 notify_forecast_shift,
                 forecast_shift_threshold_pct,
+                email_include_waste,
+                email_include_forecast_shift,
+                email_include_low_confidence,
                 updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (store_id)
             DO UPDATE SET
                 busy_multiplier = EXCLUDED.busy_multiplier,
@@ -440,6 +473,9 @@ def rollback_settings():
                 notify_email = EXCLUDED.notify_email,
                 notify_forecast_shift = EXCLUDED.notify_forecast_shift,
                 forecast_shift_threshold_pct = EXCLUDED.forecast_shift_threshold_pct,
+                email_include_waste = EXCLUDED.email_include_waste,
+                email_include_forecast_shift = EXCLUDED.email_include_forecast_shift,
+                email_include_low_confidence = EXCLUDED.email_include_low_confidence,
                 updated_at = NOW()
             """,
             (
@@ -458,6 +494,9 @@ def rollback_settings():
                 payload["notify_email"],
                 payload["notify_forecast_shift"],
                 payload["forecast_shift_threshold_pct"],
+                payload["email_include_waste"],
+                payload["email_include_forecast_shift"],
+                payload["email_include_low_confidence"],
             ),
         )
 

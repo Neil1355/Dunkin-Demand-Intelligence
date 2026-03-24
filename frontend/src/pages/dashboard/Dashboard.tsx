@@ -35,6 +35,9 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
     notify_email: false,
     notify_forecast_shift: true,
     forecast_shift_threshold_pct: 12,
+    email_include_waste: true,
+    email_include_forecast_shift: true,
+    email_include_low_confidence: true,
   };
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -2020,6 +2023,18 @@ export function Dashboard({ onLogout, username, storeId, donutTypes, munchkinTyp
                       <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
                         <input type="checkbox" checked={!!profileSettings.notify_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('notify_forecast_shift', e.target.checked)} />
                         Alert on major forecast shifts
+                      </label>
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.email_include_waste} onChange={(e) => handleProfileBooleanSettingChange('email_include_waste', e.target.checked)} />
+                        Include waste-target breaches in email
+                      </label>
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.email_include_forecast_shift} onChange={(e) => handleProfileBooleanSettingChange('email_include_forecast_shift', e.target.checked)} />
+                        Include major forecast shifts in email
+                      </label>
+                      <label className="flex items-center gap-2 p-4 rounded-2xl border" style={{ borderColor: '#F2E8DC', color: '#8B7355' }}>
+                        <input type="checkbox" checked={!!profileSettings.email_include_low_confidence} onChange={(e) => handleProfileBooleanSettingChange('email_include_low_confidence', e.target.checked)} />
+                        Include low-confidence warnings in email
                       </label>
                     </div>
 

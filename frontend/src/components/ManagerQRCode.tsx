@@ -21,18 +21,48 @@ interface QRStatusResponse {
   updated_at?: string;
 }
 
+interface StorePinStatusResponse {
+  store_id: number;
+  has_pin: boolean;
+  masked_pin?: string | null;
+}
+
 export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
   const [qrCode, setQrCode] = useState<QRCodeResponse | null>(null);
   const [qrStatus, setQrStatus] = useState<QRStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [updatingPin, setUpdatingPin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [pinStatus, setPinStatus] = useState<StorePinStatusResponse | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
 
   // Fetch or create QR code on component mount
   useEffect(() => {
     fetchQRCode();
+    fetchStorePinStatus();
   }, [storeId]);
+
+  const fetchStorePinStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/qr/store/${storeId}/pin/status`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data: StorePinStatusResponse = await response.json();
+      setPinStatus(data);
+    } catch (err) {
+      console.error('Failed to fetch PIN status:', err);
+    }
+  };
 
   const fetchQRCode = async () => {
     setLoading(true);
@@ -169,6 +199,54 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
       setError(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChangeStorePin = async () => {
+    setError(null);
+    setSuccessMessage(null);
+
+    if (!currentPassword.trim()) {
+      setError('Please enter your account password to verify identity.');
+      return;
+    }
+
+    if (!/^\d{4}$/.test(newPin)) {
+      setError('PIN must be exactly 4 digits.');
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      setError('New PIN and confirmation do not match.');
+      return;
+    }
+
+    try {
+      setUpdatingPin(true);
+      const response = await fetch(`${API_BASE}/qr/store/${storeId}/pin/change`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_pin: newPin,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to update PIN');
+      }
+
+      setCurrentPassword('');
+      setNewPin('');
+      setConfirmPin('');
+      setSuccessMessage('Store PIN updated successfully.');
+      fetchStorePinStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update store PIN');
+    } finally {
+      setUpdatingPin(false);
     }
   };
 
@@ -337,6 +415,54 @@ export const ManagerQRCode: React.FC<{ storeId: number }> = ({ storeId }) => {
                 Creating QR Code...
               </Button>
             )}
+          </div>
+
+          {/* Secure Store PIN Management */}
+          <div className="mt-4 p-4 border rounded-lg space-y-3" style={{ borderColor: '#FFD7B5', backgroundColor: '#FFF8F0' }}>
+            <div className="text-sm font-semibold text-gray-800">Store QR PIN</div>
+            <div className="text-xs text-gray-600">
+              Current PIN: {pinStatus?.has_pin ? (pinStatus.masked_pin || '****') : 'Not set'}
+            </div>
+            <div className="text-xs text-gray-600">
+              Manager password verification is required to reset PIN.
+            </div>
+
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Your account password"
+              className="w-full px-3 py-2 border rounded"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="password"
+                inputMode="numeric"
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="New 4-digit PIN"
+                className="w-full px-3 py-2 border rounded"
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="Confirm PIN"
+                className="w-full px-3 py-2 border rounded"
+              />
+            </div>
+
+            <Button onClick={handleChangeStorePin} disabled={updatingPin} className="w-full" variant="outline">
+              {updatingPin ? (
+                <>
+                  <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                  Updating PIN...
+                </>
+              ) : (
+                'Update Store PIN'
+              )}
+            </Button>
           </div>
 
           {/* Instructions */}

@@ -1,12 +1,14 @@
 from flask import Blueprint, jsonify, send_file, request, current_app
 from models.db import get_connection, return_connection
 from utils.jwt_handler import require_auth
+from flask import g
 import qrcode
 import io
 import base64
 import os
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
+import bcrypt
 
 qr_bp = Blueprint("qr", __name__)
 
@@ -337,4 +339,88 @@ def regenerate_qr(store_id):
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@qr_bp.route("/store/<int:store_id>/pin/status", methods=["GET"])
+@require_auth
+def get_store_pin_status(store_id):
+    """Return whether a store PIN is currently configured (never returns actual PIN)."""
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+
+        if int(getattr(g, "store_id", 0) or 0) != store_id:
+            return jsonify({"error": "Unauthorized access to this store"}), 403
+
+        cur.execute("SELECT store_pin FROM stores WHERE id = %s", (store_id,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"error": "Store not found"}), 404
+
+        has_pin = bool(row.get("store_pin"))
+        masked_pin = "****" if has_pin else None
+
+        return jsonify({"store_id": store_id, "has_pin": has_pin, "masked_pin": masked_pin}), 200
+    finally:
+        return_connection(conn)
+
+
+@qr_bp.route("/store/<int:store_id>/pin/change", methods=["POST"])
+@require_auth
+def change_store_pin(store_id):
+    """Change store PIN after manager password verification."""
+    data = request.get_json() or {}
+    current_password = str(data.get("current_password") or "")
+    new_pin = str(data.get("new_pin") or "")
+
+    if int(getattr(g, "store_id", 0) or 0) != store_id:
+        return jsonify({"error": "Unauthorized access to this store"}), 403
+
+    if not current_password:
+        return jsonify({"error": "Current password is required"}), 400
+
+    if len(new_pin) != 4 or not new_pin.isdigit():
+        return jsonify({"error": "New PIN must be exactly 4 digits"}), 400
+
+    user_id = getattr(g, "user_id", None)
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+
+        # Verify user role and password before allowing PIN change.
+        cur.execute(
+            """
+            SELECT id, role, password_hash, store_id
+            FROM users
+            WHERE id = %s
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+        user_row = cur.fetchone()
+        if not user_row:
+            return jsonify({"error": "User not found"}), 404
+
+        role = (user_row.get("role") or "").lower()
+        if role not in ("manager", "assistant_manager"):
+            return jsonify({"error": "Only managers can change store PIN"}), 403
+
+        if int(user_row.get("store_id") or 0) != store_id:
+            return jsonify({"error": "User does not belong to this store"}), 403
+
+        stored_hash = user_row.get("password_hash")
+        if not stored_hash or not bcrypt.checkpw(current_password.encode(), str(stored_hash).encode()):
+            return jsonify({"error": "Password verification failed"}), 401
+
+        cur.execute("UPDATE stores SET store_pin = %s, updated_at = NOW() WHERE id = %s", (new_pin, store_id))
+        if cur.rowcount == 0:
+            return jsonify({"error": "Store not found"}), 404
+
+        conn.commit()
+        return jsonify({"message": "Store PIN updated successfully", "store_id": store_id}), 200
+    finally:
+        return_connection(conn)
 
